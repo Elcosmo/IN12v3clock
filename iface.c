@@ -327,6 +327,19 @@ static void iface_display(void)
 			displayDot(0);
 			break;
 		
+		case SETUP_COLON_BLINKING_TYPE:
+			if (i.display_state > 10){
+				iface_disp2decDigit(i.display_state,&i.display[2],&i.display[3]);
+			}else{
+				i.display[3] = i.display_state;
+				i.display[2] = NIXIE_OFF;	
+			}
+			i.display[1] = NIXIE_OFF;
+			i.display[0] = i.setupValue;
+			displayNixie(&i.display[0],0);
+			displayDot(0);
+			break;
+		
 		case SETUP_NIGHT_BR_START_H:
 		case SETUP_NIGHT_BR_START_M:
 		case SETUP_NIGHT_BR_END_H:

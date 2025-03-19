@@ -255,6 +255,11 @@ Q7 -> 2003A U14 I5, O5-> N1 9
     **10.** **Cathode poisoning prevention in night mode:**  
          `0` — Every 6 minutes during normal operation  
          `1` — Every 2 minutes (only at night)  
+
+    **11.** **Colon blinking type:**  
+         `0` — Default blinking  
+         `1` — Colon always on  
+         `2` — Colon always off  
     
 5. **Exiting the menu:** After the last menu item, the clock returns to normal time display mode.
 

@@ -162,6 +162,13 @@ void event_single_key1(void)
 			}
 			break;
 		
+		case SETUP_COLON_BLINKING_TYPE:
+			i.setupValue++;
+			if (i.setupValue > 2){
+				i.setupValue = 0;
+			}
+			break;
+
 		case SETUP_BRIGHT:
 		case SETUP_NIGHT_BR:
 			if(i.setupValue) {
@@ -307,6 +314,13 @@ void event_single_key2(void)
 		case SETUP_ANTIPOISONING_AT_NIGHT_ONLY:
 			e.antipoisoningAtNihgtOnly = i.setupValue;
 			EEPROM_writeByte(ANTIPOISONING_AT_NIGHT_ONLY_ADDR,e.antipoisoningAtNihgtOnly);
+			i.display_state++;
+			i.setupValue = e.colonBlinkingType;
+			break;
+
+		case SETUP_COLON_BLINKING_TYPE:
+			e.colonBlinkingType = i.setupValue;
+			EEPROM_writeByte(COLON_BLINKING_TYPE,e.colonBlinkingType);
 			i.display_state = SETUP_NO;
 			bitmaskclr(ki.bf,S2_M);	//disable fast release key2 to prevent toggle RGB
 			break;

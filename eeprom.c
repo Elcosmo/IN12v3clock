@@ -97,6 +97,12 @@ void EEPROM_dataInit(void)
 		e.antipoisoningEffect = 1;	// todo temporally it's only 1
 		EEPROM_writeByte(ANTIPOISONING_EFFECT_ADDR, e.antipoisoningEffect);
 	}
+
+	e.colonBlinkingType = EEPROM_readByte(COLON_BLINKING_TYPE);
+	if (e.colonBlinkingType > 2){
+		e.colonBlinkingType = 0;
+		EEPROM_writeByte(COLON_BLINKING_TYPE,e.colonBlinkingType);
+	}
 }
 
 /**

@@ -21,7 +21,8 @@ enum eeprom_adreses{
 	G_ADDR,
 	B_ADDR,
 	ANTIPOISONING_EFFECT_ADDR,
-	RGB_EN_ADDR
+	RGB_EN_ADDR,
+	COLON_BLINKING_TYPE
 };
 
 
@@ -39,6 +40,7 @@ typedef struct {
 	uint8_t		antipoisoningAtNihgtOnly;
 	uint8_t 	rgbGlobalEn;
 	uint8_t		antipoisoningEffect;
+	uint8_t		colonBlinkingType;
 }Edata;
 
 extern Edata e;

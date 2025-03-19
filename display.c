@@ -262,13 +262,26 @@ void displayDotPulse (void)
 
 void displayDotPulseProc (void)
 {
-	if (dotPulseCounter < 25){
-		displaySetDotBright(dotPulseCounter*4);
-	}else if (dotPulseCounter < 50){
-		displaySetDotBright((49-dotPulseCounter)*4);
-	}
-	if (dotPulseCounter < 50){
-		dotPulseCounter++;
+	switch (e.colonBlinkingType) {
+		case 1:
+			if (dotPulseCounter < 50) { 
+				displaySetDotBright(50 * 4);
+				dotPulseCounter++;
+			}
+			break;
+		case 2:
+			displaySetDotBright(0);
+			break;
+		default:
+			if (dotPulseCounter < 25) {
+				displaySetDotBright(dotPulseCounter * 4);
+			} else if (dotPulseCounter < 50) {
+				displaySetDotBright((49 - dotPulseCounter) * 4);
+			}
+			if (dotPulseCounter < 50) {
+				dotPulseCounter++;
+			}
+			break;
 	}
 }
 
