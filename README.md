@@ -146,6 +146,8 @@ Q7 -> 2003A U14 I5, O5-> N1 9
  - Install Docker.
  - Open Windows Terminal.
  - Run the `run.cmd` file.
+ - Run command `make clean` in the terminal window.
+ - Run command `make` in the terminal window.
  - Or use the precompiled files (`main.s19` or `main.ihx`) located in the `SDCC` directory.
 2. Flash the firmware to the STM8S003F3P6 microcontroller.
 - The `in12v3clock_Programmer` directory contains a project for the STVP programmer with a default EEPROM file and a default OPTION BYTE file.
