@@ -10,14 +10,28 @@
 
 Iface i;
 
+enum schedule_minutes{
+	SCHEDULE_DAY_MINUTES = 1440,
+	SCHEDULE_MORNING_START = 420,
+	SCHEDULE_WEEKDAY_MORNING_END = 540,
+	SCHEDULE_WEEKEND_MORNING_END = 720,
+	SCHEDULE_WEEKDAY_EVENING_START = 1020,
+	SCHEDULE_WEEKEND_EVENING_START = 1140,
+	SCHEDULE_WEEKDAY_EVENING_END = 1440,
+	SCHEDULE_WEEKEND_EVENING_END = 1500
+};
+
 static void timer50msProc(void);
 static void antipoisoningProc(void);
 static void iface_display(void);
+static void iface_display_nixie(uint8_t *data, uint8_t full_bright_bitmask);
 static void iface_disp2decDigit (uint8_t value, uint8_t *d0, uint8_t *d1);
 static void iface_disp3decDigit (uint16_t value, uint8_t *d0, uint8_t *d1, uint8_t *d2);
 static void iface_disp2bcdDigit (uint8_t value, uint8_t *d0, uint8_t *d1);
 static uint8_t antipoisoning_loop(uint8_t *oldd, uint8_t *newd);
 static uint8_t antipoisoning_dig(uint8_t dig);
+static uint8_t schedule_day_enabled(uint8_t weekday, uint16_t current_minutes);
+static uint8_t schedule_display_enabled(uint8_t weekday, uint16_t current_minutes);
 
 void iface_init( void )
 {
@@ -142,7 +156,7 @@ static void antipoisoningProc(void)
 				i.display[k] = i.apNew[k];
 			}
 		}
-		displayNixie(&i.display[0],bm);
+		iface_display_nixie(&i.display[0],bm);
 	}
 }
 
@@ -193,6 +207,41 @@ void iface_start_antipoisoning(void)
 	i.counterAp100ms = 0;
 }
 
+static uint8_t schedule_day_enabled(uint8_t weekday, uint16_t current_minutes)
+{
+	if ((weekday < 1)||(weekday > 7)) {return 0;}
+	if (weekday >= 6){
+		if ((current_minutes >= SCHEDULE_MORNING_START)&&(current_minutes < SCHEDULE_WEEKEND_MORNING_END)) {return 1;}
+		if ((current_minutes >= SCHEDULE_WEEKEND_EVENING_START)&&(current_minutes < SCHEDULE_WEEKEND_EVENING_END)) {return 1;}
+	} else {
+		if ((current_minutes >= SCHEDULE_MORNING_START)&&(current_minutes < SCHEDULE_WEEKDAY_MORNING_END)) {return 1;}
+		if ((current_minutes >= SCHEDULE_WEEKDAY_EVENING_START)&&(current_minutes < SCHEDULE_WEEKDAY_EVENING_END)) {return 1;}
+	}
+	return 0;
+}
+
+static uint8_t schedule_display_enabled(uint8_t weekday, uint16_t current_minutes)
+{
+	uint8_t previous_weekday;
+	if (schedule_day_enabled(weekday,current_minutes)) {return 1;}
+	if (weekday == 1) {previous_weekday = 7;}
+	else {previous_weekday = weekday - 1;}
+	return schedule_day_enabled(previous_weekday,current_minutes + SCHEDULE_DAY_MINUTES);
+}
+
+static void iface_display_nixie(uint8_t *data, uint8_t full_bright_bitmask)
+{
+	uint8_t off_data[NIXIE_COUNT] = {NIXIE_OFF,NIXIE_OFF,NIXIE_OFF,NIXIE_OFF};
+	uint16_t current_minutes;
+
+	current_minutes = time_to_minutes(bcd_to_decimal(i.hours), bcd_to_decimal(i.minutes));
+	if (schedule_display_enabled(i.weekday,current_minutes)){
+		displayNixie(data,full_bright_bitmask);
+	} else {
+		displayNixie(&off_data[0],0);
+	}
+}
+
 static void iface_display(void)
 {
 	static uint8_t secondsLast;
@@ -236,7 +285,7 @@ static void iface_display(void)
 						i.display[3] = NIXIE_OFF;
 					}
 				}
-				displayNixie(&i.display[0],0);
+				iface_display_nixie(&i.display[0],0);
 			
 				if (i.seconds != secondsLast){
 					secondsLast = i.seconds;
@@ -274,7 +323,7 @@ static void iface_display(void)
 				i.display[2] = NIXIE_OFF;
 				i.display[3] = NIXIE_OFF;
 			}
-			displayNixie(&i.display[0],0);
+			iface_display_nixie(&i.display[0],0);
 			displayDot(1);
 			break;
 		
@@ -285,7 +334,7 @@ static void iface_display(void)
 				i.display[0] = NIXIE_OFF;
 				i.display[1] = NIXIE_OFF;
 			}
-			displayNixie(&i.display[0],0);
+			iface_display_nixie(&i.display[0],0);
 			displayDot(1);
 			break;
 		
@@ -298,7 +347,7 @@ static void iface_display(void)
 			}else{
 				i.display[3] = i.display_state-11;
 			}
-			displayNixie(&i.display[0],0);
+			iface_display_nixie(&i.display[0],0);
 			displayDot(0);
 			break;
 		
@@ -306,7 +355,7 @@ static void iface_display(void)
 		case SETUP_NIGHT_BR:
 			i.display[3] = i.display_state;
 			iface_disp3decDigit (i.setupValue, &i.display[0], &i.display[1], &i.display[2]);
-			displayNixie(&i.display[0],bin(00001000));
+			iface_display_nixie(&i.display[0],bin(00001000));
 			displayDot(0);
 		break;
 		
@@ -323,7 +372,7 @@ static void iface_display(void)
 			}
 			i.display[1] = NIXIE_OFF;
 			i.display[0] = i.setupValue;
-			displayNixie(&i.display[0],0);
+			iface_display_nixie(&i.display[0],0);
 			displayDot(0);
 			break;
 		
@@ -336,7 +385,7 @@ static void iface_display(void)
 			}
 			i.display[1] = NIXIE_OFF;
 			i.display[0] = i.setupValue;
-			displayNixie(&i.display[0],0);
+			iface_display_nixie(&i.display[0],0);
 			displayDot(0);
 			break;
 
@@ -344,7 +393,7 @@ static void iface_display(void)
 			iface_disp2decDigit(12,&i.display[2],&i.display[3]);
 			i.display[1] = NIXIE_OFF;
 			i.display[0] = i.setupValue;
-			displayNixie(&i.display[0],0);
+			iface_display_nixie(&i.display[0],0);
 			displayDot(0);
 			break;
 		
@@ -355,7 +404,7 @@ static void iface_display(void)
 			iface_disp2decDigit(i.setupValue, &i.display[0], &i.display[1]);
 			i.display[2] = NIXIE_OFF;
 			i.display[3] = i.display_state;
-			displayNixie(&i.display[0],0);
+			iface_display_nixie(&i.display[0],0);
 			displayDot(0);
 			break;
 		
