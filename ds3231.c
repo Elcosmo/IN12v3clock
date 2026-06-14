@@ -8,7 +8,7 @@ void ds3231Init(void)
 	// дописать инициализацию, особенно часов, чтобы был только 24 часа формат времени
 }
 
-void ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours)
+void ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours, uint8_t *weekday)
 {
 	if (i2c_busy_check() == OK){
 		i2c_start();
@@ -24,7 +24,9 @@ void ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours)
 				{
 					*seconds = i2c_shift(0xFF); i2c_ack(SET_ACK);
 					*minutes = i2c_shift(0xFF); i2c_ack(SET_ACK);
-					*hours = i2c_shift(0xFF); 	i2c_ack(SET_NAK);
+					*hours = i2c_shift(0xFF); 	i2c_ack(SET_ACK);
+					*weekday = i2c_shift(0xFF); i2c_ack(SET_NAK);
+					if ((*weekday < 1)||(*weekday > 7)) {*weekday = 1;}
 					i2c_stop();
 					return;
 				}

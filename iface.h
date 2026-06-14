@@ -35,6 +35,7 @@ typedef struct
 	uint8_t		seconds;
 	uint8_t		minutes;
 	uint8_t		hours;
+	uint8_t		weekday;
 	uint8_t		setupValue;
 	uint8_t 	minutesSetupValue;
 	uint8_t 	hoursSetupValue;

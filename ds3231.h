@@ -34,7 +34,7 @@ enum ds3231_reg_addresses{
 
 
 void ds3231Init(void);
-void ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours);
+void ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours, uint8_t *weekday);
 void ds3231_write_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours);
 
 #ifdef	__cplusplus

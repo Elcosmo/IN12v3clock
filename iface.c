@@ -22,7 +22,7 @@ static uint8_t antipoisoning_dig(uint8_t dig);
 void iface_init( void )
 {
 	i.display_state = SETUP_NO;
-	ds3231_read_time(&i.seconds,&i.minutes,&i.hours);
+	ds3231_read_time(&i.seconds,&i.minutes,&i.hours,&i.weekday);
 	i.hoursOld = i.hours;
 	i.minutesOld = i.minutes;
 	memset(i.apFlagEn,0,sizeof(i.apFlagEn));
@@ -122,7 +122,7 @@ static void timer50msProc(void)
 	static uint8_t secondsLast;
 	
 	if (i.display_state == SETUP_NO){
-		ds3231_read_time(&i.seconds,&i.minutes,&i.hours);
+		ds3231_read_time(&i.seconds,&i.minutes,&i.hours,&i.weekday);
 		if (i.seconds != secondsLast){
 			secondsLast = i.seconds;
 			displayDotPulse();
