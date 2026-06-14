@@ -71,3 +71,29 @@ void ds3231_write_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours)
 	}
 	i2c_stop();
 }
+
+void ds3231_write_weekday(uint8_t weekday)
+{
+	if ((weekday < 1)||(weekday > 7)) {return;}
+	if (i2c_busy_check() == OK){
+		i2c_start();
+		i2c_shift(DS3231_ADDRESS);
+		if (i2c_ack(READ_ANSWER)==ACK)
+		{
+			i2c_shift(DAY_ADDR);
+			if (i2c_ack(READ_ANSWER)==ACK)
+			{
+				i2c_shift(weekday);
+				if (i2c_ack(READ_ANSWER)==ACK)
+				{
+					i2c_stop();
+					return;
+				}
+			}
+		}
+	}else{
+		i2c_slave_unlock();
+		return;
+	}
+	i2c_stop();
+}

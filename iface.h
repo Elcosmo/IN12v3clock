@@ -23,6 +23,7 @@ enum setup_states{
 	SETUP_B,
 	SETUP_HOURS,
 	SETUP_MINUTES,
+	SETUP_WEEKDAY,
 	SETUP_NO = 255
 };
 

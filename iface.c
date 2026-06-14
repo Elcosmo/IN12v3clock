@@ -339,6 +339,14 @@ static void iface_display(void)
 			displayNixie(&i.display[0],0);
 			displayDot(0);
 			break;
+
+		case SETUP_WEEKDAY:
+			iface_disp2decDigit(12,&i.display[2],&i.display[3]);
+			i.display[1] = NIXIE_OFF;
+			i.display[0] = i.setupValue;
+			displayNixie(&i.display[0],0);
+			displayDot(0);
+			break;
 		
 		case SETUP_NIGHT_BR_START_H:
 		case SETUP_NIGHT_BR_START_M:

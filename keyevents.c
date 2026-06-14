@@ -169,6 +169,13 @@ void event_single_key1(void)
 			}
 			break;
 
+		case SETUP_WEEKDAY:
+			i.setupValue++;
+			if ((i.setupValue < 1)||(i.setupValue > 7)){
+				i.setupValue = 1;
+			}
+			break;
+
 		case SETUP_BRIGHT:
 		case SETUP_NIGHT_BR:
 			if(i.setupValue) {
@@ -321,6 +328,13 @@ void event_single_key2(void)
 		case SETUP_COLON_BLINKING_TYPE:
 			e.colonBlinkingType = i.setupValue;
 			EEPROM_writeByte(COLON_BLINKING_TYPE,e.colonBlinkingType);
+			i.display_state = SETUP_WEEKDAY;
+			i.setupValue = i.weekday;
+			break;
+
+		case SETUP_WEEKDAY:
+			ds3231_write_weekday(i.setupValue);
+			i.weekday = i.setupValue;
 			i.display_state = SETUP_NO;
 			bitmaskclr(ki.bf,S2_M);	//disable fast release key2 to prevent toggle RGB
 			break;
