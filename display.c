@@ -13,7 +13,7 @@ static 					uint8_t dotPulseCounter;
 static 					uint16_t displayBright;
 static 					uint8_t displayDotGate = 1;
 static 					uint8_t displayRgbState;
-static 					uint8_t displayRgbGate = 1;
+static 					uint8_t displayRgbGate;
 
 static uint8_t *displayNixieBuffPrepare(uint8_t *inbuff, uint8_t dmask);
 static void displaySetDotBright( uint8_t bright);

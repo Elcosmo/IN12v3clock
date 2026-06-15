@@ -34,7 +34,7 @@ static uint8_t antipoisoning_dig(uint8_t dig);
 static uint8_t schedule_day_enabled(uint8_t weekday, uint16_t current_minutes);
 static uint8_t schedule_display_enabled(uint8_t weekday, uint16_t current_minutes);
 static uint8_t iface_schedule_enabled(void);
-static void iface_output_gate_update(void);
+static uint8_t iface_output_gate_update(void);
 
 void iface_init( void )
 {
@@ -237,13 +237,16 @@ static uint8_t iface_schedule_enabled(void)
 	return schedule_display_enabled(i.weekday,time_to_minutes(bcd_to_decimal(i.hours), bcd_to_decimal(i.minutes)));
 }
 
-static void iface_output_gate_update(void)
+static uint8_t iface_output_gate_update(void)
 {
 	uint8_t schedule_enabled;
 
 	schedule_enabled = iface_schedule_enabled();
 	displayDotGateSet(schedule_enabled);
-	displayRGBGateSet(schedule_enabled);
+	if (!schedule_enabled) {
+		displayRGBGateSet(0);
+	}
+	return schedule_enabled;
 }
 
 static void iface_display_nixie_scheduled(uint8_t *data, uint8_t full_bright_bitmask)
@@ -268,12 +271,13 @@ static void iface_display_nixie(uint8_t *data, uint8_t full_bright_bitmask)
 
 static void iface_display(void)
 {
-	static uint8_t secondsLast;
+	static uint8_t secondsLast = 0xFF;
 	uint16_t current_minutes;
 	uint16_t start_minutes;
 	uint16_t end_minutes;
+	uint8_t schedule_enabled;
 
-	iface_output_gate_update();
+	schedule_enabled = iface_output_gate_update();
 
 	switch(i.display_state){
 		case SETUP_NO:
@@ -325,18 +329,27 @@ static void iface_display(void)
 								} else {
 									displayRGBset(0);
 								}
+							} else {
+								displayRGBset(0);
 							}
 						} else {
 							displaySetBright(e.bright);
 							if (e.rgbGlobalEn){
 								displayRGBset(1);
+							} else {
+								displayRGBset(0);
 							}
 						}
 					} else {
 						displaySetBright(e.bright);
 						if (e.rgbGlobalEn){
 							displayRGBset(1);
+						} else {
+							displayRGBset(0);
 						}
+					}
+					if (schedule_enabled) {
+						displayRGBGateSet(1);
 					}
 				}
 			}
