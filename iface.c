@@ -24,6 +24,7 @@ enum schedule_minutes{
 static void timer50msProc(void);
 static void antipoisoningProc(void);
 static void iface_display(void);
+static void iface_display_nixie_scheduled(uint8_t *data, uint8_t full_bright_bitmask);
 static void iface_display_nixie(uint8_t *data, uint8_t full_bright_bitmask);
 static void iface_disp2decDigit (uint8_t value, uint8_t *d0, uint8_t *d1);
 static void iface_disp3decDigit (uint16_t value, uint8_t *d0, uint8_t *d1, uint8_t *d2);
@@ -32,6 +33,8 @@ static uint8_t antipoisoning_loop(uint8_t *oldd, uint8_t *newd);
 static uint8_t antipoisoning_dig(uint8_t dig);
 static uint8_t schedule_day_enabled(uint8_t weekday, uint16_t current_minutes);
 static uint8_t schedule_display_enabled(uint8_t weekday, uint16_t current_minutes);
+static uint8_t iface_schedule_enabled(void);
+static void iface_output_gate_update(void);
 
 void iface_init( void )
 {
@@ -156,7 +159,7 @@ static void antipoisoningProc(void)
 				i.display[k] = i.apNew[k];
 			}
 		}
-		iface_display_nixie(&i.display[0],bm);
+		iface_display_nixie_scheduled(&i.display[0],bm);
 	}
 }
 
@@ -229,16 +232,37 @@ static uint8_t schedule_display_enabled(uint8_t weekday, uint16_t current_minute
 	return schedule_day_enabled(previous_weekday,current_minutes + SCHEDULE_DAY_MINUTES);
 }
 
-static void iface_display_nixie(uint8_t *data, uint8_t full_bright_bitmask)
+static uint8_t iface_schedule_enabled(void)
+{
+	return schedule_display_enabled(i.weekday,time_to_minutes(bcd_to_decimal(i.hours), bcd_to_decimal(i.minutes)));
+}
+
+static void iface_output_gate_update(void)
+{
+	uint8_t schedule_enabled;
+
+	schedule_enabled = iface_schedule_enabled();
+	displayDotGateSet(schedule_enabled);
+	displayRGBGateSet(schedule_enabled);
+}
+
+static void iface_display_nixie_scheduled(uint8_t *data, uint8_t full_bright_bitmask)
 {
 	uint8_t off_data[NIXIE_COUNT] = {NIXIE_OFF,NIXIE_OFF,NIXIE_OFF,NIXIE_OFF};
-	uint16_t current_minutes;
 
-	current_minutes = time_to_minutes(bcd_to_decimal(i.hours), bcd_to_decimal(i.minutes));
-	if (schedule_display_enabled(i.weekday,current_minutes)){
+	if (iface_schedule_enabled()){
 		displayNixie(data,full_bright_bitmask);
 	} else {
 		displayNixie(&off_data[0],0);
+	}
+}
+
+static void iface_display_nixie(uint8_t *data, uint8_t full_bright_bitmask)
+{
+	if (i.display_state != SETUP_NO){
+		displayNixie(data,full_bright_bitmask);
+	} else {
+		iface_display_nixie_scheduled(data,full_bright_bitmask);
 	}
 }
 
@@ -248,7 +272,9 @@ static void iface_display(void)
 	uint16_t current_minutes;
 	uint16_t start_minutes;
 	uint16_t end_minutes;
-	
+
+	iface_output_gate_update();
+
 	switch(i.display_state){
 		case SETUP_NO:
 			current_minutes = time_to_minutes(bcd_to_decimal(i.hours), bcd_to_decimal(i.minutes));

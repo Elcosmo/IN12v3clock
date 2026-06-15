@@ -11,9 +11,13 @@ static volatile uint8_t disp_data[5]							= {0,0,0,0,0};
 static 					uint8_t dotPulseCounter;
 			 volatile uint8_t flag10ms;
 static 					uint16_t displayBright;
+static 					uint8_t displayDotGate = 1;
+static 					uint8_t displayRgbState;
+static 					uint8_t displayRgbGate = 1;
 
 static uint8_t *displayNixieBuffPrepare(uint8_t *inbuff, uint8_t dmask);
 static void displaySetDotBright( uint8_t bright);
+static void displayRGBapply(void);
 
 void displayInit ( void )
 {
@@ -242,6 +246,7 @@ void displayDot (uint8_t state)
 {
 	uint16_t bright = displayBright;
 	
+	if (!displayDotGate) {state = 0;}
 	if (state == 0) {
 		sfr_TIM2.IER.CC2IE 		= 0;							// TIM2 channel 2 compare interrupt disable
 		DOT_PIN = 0;
@@ -252,6 +257,14 @@ void displayDot (uint8_t state)
 		sfr_TIM2.CCR2H.byte = hibyte(bright);		// set PWM channel 2 duty period
 		sfr_TIM2.CCR2L.byte = lobyte(bright);
 		sfr_TIM2.IER.CC2IE 		= 1;							// TIM2 channel 2 compare interrupt enable
+	}
+}
+
+void displayDotGateSet (uint8_t state)
+{
+	displayDotGate = state;
+	if (!displayDotGate) {
+		displaySetDotBright(0);
 	}
 }
 
@@ -289,6 +302,7 @@ static void displaySetDotBright( uint8_t bright)
 {
 	uint16_t b;
 	
+	if (!displayDotGate) {bright = 0;}
 	if (bright == 0) {
 		sfr_TIM2.IER.CC2IE 		= 0;						// TIM2 channel 2 compare interrupt disable
 		DOT_PIN = 0;
@@ -334,7 +348,21 @@ ISR_HANDLER (TIM2_CAP_ISR, _TIM2_CAPCOM_CC1IF_VECTOR_)
 
 void displayRGBset (uint8_t state)
 {
-	if (state){
+	displayRgbState = state;
+	displayRGBapply();
+}
+
+void displayRGBGateSet (uint8_t state)
+{
+	state = (state) ? 1 : 0;
+	if (displayRgbGate == state) {return;}
+	displayRgbGate = state;
+	displayRGBapply();
+}
+
+static void displayRGBapply(void)
+{
+	if (displayRgbState && displayRgbGate){
 		RGBsetR((uint16_t)scale(EEPROM_readByte(R_ADDR),255,displayBright));
 		RGBsetG((uint16_t)scale(EEPROM_readByte(G_ADDR),255,displayBright));
 		RGBsetB((uint16_t)scale(EEPROM_readByte(B_ADDR),255,displayBright));
@@ -347,15 +375,27 @@ void displayRGBset (uint8_t state)
 
 void displayRset(uint8_t value)
 {
+	if (!displayRgbGate) {
+		RGBsetR(0);
+		return;
+	}
 	RGBsetR((uint16_t)scale(value,255,displayBright));
 }
 
 void displayGset(uint8_t value)
 {
+	if (!displayRgbGate) {
+		RGBsetG(0);
+		return;
+	}
 	RGBsetG((uint16_t)scale(value,255,displayBright));
 }
 
 void displayBset(uint8_t value)
 {
+	if (!displayRgbGate) {
+		RGBsetB(0);
+		return;
+	}
 	RGBsetB((uint16_t)scale(value,255,displayBright));
 }
