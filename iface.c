@@ -131,7 +131,10 @@ static void timer50msProc(void)
 		i.rtcValid = ds3231_read_time(&i.seconds,&i.minutes,&i.hours,&i.weekday);
 		if (i.rtcValid && (i.seconds != secondsLast)){
 			secondsLast = i.seconds;
-			displayDotPulse();
+			/* DS3231 seconds are valid BCD, and bit 0 still matches decimal parity. */
+			if ((i.seconds & 1U) == 0) {
+				displayDotPulse();
+			}
 		}
 	}
 }

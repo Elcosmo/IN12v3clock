@@ -15,9 +15,9 @@ static 					uint8_t displayDotGate = 1;
 static 					uint8_t displayRgbState;
 static 					uint8_t displayRgbGate;
 
-#define DOT_PULSE_PEAK_STEP		16
-#define DOT_PULSE_LAST_STEP		32
-#define DOT_PULSE_BRIGHT_STEP	6
+#define DOT_PULSE_PEAK_STEP		32U
+#define DOT_PULSE_LAST_STEP		64U
+#define DOT_PULSE_BRIGHT_STEP	3U
 
 static uint8_t *displayNixieBuffPrepare(uint8_t *inbuff, uint8_t dmask);
 static void displaySetDotBright( uint8_t bright);

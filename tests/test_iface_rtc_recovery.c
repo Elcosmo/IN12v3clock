@@ -20,6 +20,11 @@ static uint8_t last_rgb_gate = 1;
 static uint8_t last_rgb_state;
 static uint8_t dot_pulses;
 static uint8_t display_nixie_calls;
+static unsigned rtc_reads;
+static uint8_t mock_seconds = 0x02;
+static const uint8_t *mock_seconds_sequence;
+static unsigned mock_seconds_count;
+static unsigned mock_seconds_index;
 static unsigned failures;
 
 static void fail(const char *message)
@@ -49,6 +54,19 @@ static void run_iface_events(unsigned count)
 static void run_display_period(void)
 {
 	run_iface_events(250);
+}
+
+static void run_until_rtc_reads(unsigned target)
+{
+	unsigned guard = 0;
+
+	while ((rtc_reads < target) && (guard < 1000)) {
+		run_iface_events(1);
+		guard++;
+	}
+	if (rtc_reads < target) {
+		fail("timed out waiting for RTC reads");
+	}
 }
 
 static uint8_t nixie_all_off(void)
@@ -97,6 +115,7 @@ static void expect_nixie_digits(const char *label, uint8_t d0, uint8_t d1, uint8
 
 uint8_t ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours, uint8_t *weekday)
 {
+	rtc_reads++;
 	if (!mock_rtc_valid) {
 		*seconds = 0;
 		*minutes = 0;
@@ -104,7 +123,11 @@ uint8_t ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours, uin
 		*weekday = 1;
 		return 0;
 	}
-	*seconds = 0x01;
+	if (mock_seconds_sequence && (mock_seconds_index < mock_seconds_count)) {
+		*seconds = mock_seconds_sequence[mock_seconds_index++];
+	} else {
+		*seconds = mock_seconds;
+	}
 	*minutes = 0x31;
 	*hours = 0x07;
 	*weekday = 1;
@@ -278,6 +301,27 @@ int main(void)
 	expect_nixie_digits("normal display recovered", 1, 3, 7, NIXIE_OFF);
 	expect_u8("rgb desired restored after recovery", last_rgb_state, 1);
 	expect_u8("rgb gate open after recovery", last_rgb_gate, 1);
+
+	{
+		static const uint8_t seconds_sequence[] = {0x03, 0x04, 0x05, 0x06};
+		unsigned read_start;
+		uint8_t pulse_start;
+
+		mock_seconds_sequence = seconds_sequence;
+		mock_seconds_count = sizeof(seconds_sequence) / sizeof(seconds_sequence[0]);
+		mock_seconds_index = 0;
+		read_start = rtc_reads;
+		pulse_start = dot_pulses;
+
+		run_until_rtc_reads(read_start + 1);
+		expect_u8("odd second does not pulse", dot_pulses, pulse_start);
+		run_until_rtc_reads(read_start + 2);
+		expect_u8("even second pulses", dot_pulses, pulse_start + 1);
+		run_until_rtc_reads(read_start + 3);
+		expect_u8("next odd second does not pulse", dot_pulses, pulse_start + 1);
+		run_until_rtc_reads(read_start + 4);
+		expect_u8("next even second pulses", dot_pulses, pulse_start + 2);
+	}
 
 	if (failures) {
 		printf("FAIL iface rtc recovery tests failures=%u\n", failures);

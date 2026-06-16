@@ -23,9 +23,9 @@ static uint8_t hc595_zero_latched;
 static unsigned failures;
 
 #define DOT_CALL_MS 30
-#define DOT_PULSE_PEAK_STEP 16
-#define DOT_PULSE_LAST_STEP 32
-#define DOT_PULSE_BRIGHT_STEP 6
+#define DOT_PULSE_PEAK_STEP 32U
+#define DOT_PULSE_LAST_STEP 64U
+#define DOT_PULSE_BRIGHT_STEP 3U
 
 static void fail(const char *message)
 {
@@ -111,7 +111,7 @@ static void test_default_dot_pulse_cycle(void)
 {
 	uint8_t pulse;
 	uint8_t step;
-	uint16_t pwm[35];
+	uint16_t pwm[DOT_PULSE_LAST_STEP + 3U];
 
 	e.colonBlinkingType = 0;
 	displayDotGateSet(1);
@@ -140,8 +140,8 @@ static void test_default_dot_pulse_cycle(void)
 		if (pwm[DOT_PULSE_LAST_STEP + 1] != 0 || pwm[DOT_PULSE_LAST_STEP + 2] != 0) {
 			fail("default dot pulse reignites after cycle end");
 		}
-		if ((DOT_PULSE_LAST_STEP * DOT_CALL_MS) >= 1000) {
-			fail("default dot pulse zero is not reached within one second");
+		if ((DOT_PULSE_LAST_STEP * DOT_CALL_MS) >= 2000) {
+			fail("default dot pulse zero is not reached within two seconds");
 		}
 
 		displayDotPulse();
