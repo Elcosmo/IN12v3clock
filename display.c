@@ -21,11 +21,28 @@ static void displayRGBapply(void);
 
 void displayInit ( void )
 {
+	uint8_t k;
+
+	for (k = 0; k < sizeof(zero_data); k++) {
+		zero_data[k] = 0;
+		disp_data[k] = 0;
+	}
+	displayDotGate = 0;
+	displayRgbState = 0;
+	displayRgbGate = 0;
+
 	// configure DOT_PIN as output
+	DOT_PIN = 0;
 	sfr_PORTD.DDR.DDR6 = 1;     // input(=0) or output(=1)
 	sfr_PORTD.CR1.C16  = 1;     // input: 0=float, 1=pull-up; output: 0=open-drain, 1=push-pull
 	sfr_PORTD.CR2.C26  = 1;     // input: 0=no exint, 1=exint; output: 0=2MHz slope, 1=10MHz slope
-	DOT_PIN = 0;
+	sfr_TIM2.CR1.CEN = 0;
+	sfr_TIM2.IER.CC1IE = 0;
+	sfr_TIM2.IER.CC2IE = 0;
+	sfr_TIM2.IER.UIE = 0;
+
+	hc595Init();
+	hc595ChainShiftOut(zero_data,sizeof(zero_data));
 	
 	// configure TIM2 with 100Hz frequency, count to 10000;
   sfr_TIM2.CR1.ARPE = 1;								// use buffered period register to avoid glitches
@@ -47,11 +64,10 @@ void displayInit ( void )
 	//sfr_TIM2.IER.CC2IE 		= 1;						// TIM2 channel 2 compare interrupt enable
 	sfr_TIM2.IER.UIE 			= 1;						// TIM2 update interrupt enable
 	sfr_TIM2.CR1.CEN     	= 1;						// start TIM2
-	
-	hc595Init();
+
 	displaySetBright(100);
 	displayDot(0);
-	hc595ChainShiftOut(zero_data,sizeof(zero_data));
+	hc595OutputEnable();
 	
 	
 	RGBinit();

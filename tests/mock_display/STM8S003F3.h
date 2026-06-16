@@ -8,19 +8,35 @@
 #define ISR_HANDLER(name, vector) void name(void)
 
 typedef struct {
+	uint8_t ODR2;
+	uint8_t ODR3;
+	uint8_t ODR5;
 	uint8_t ODR6;
+	uint8_t ODR7;
 } MockPortOdr;
 
 typedef struct {
+	uint8_t DDR2;
+	uint8_t DDR3;
+	uint8_t DDR5;
 	uint8_t DDR6;
+	uint8_t DDR7;
 } MockPortDdr;
 
 typedef struct {
+	uint8_t C12;
+	uint8_t C13;
+	uint8_t C15;
 	uint8_t C16;
+	uint8_t C17;
 } MockPortCr1;
 
 typedef struct {
+	uint8_t C22;
+	uint8_t C23;
+	uint8_t C25;
 	uint8_t C26;
+	uint8_t C27;
 } MockPortCr2;
 
 typedef struct {
@@ -79,6 +95,7 @@ typedef struct {
 	MockTimSr1 SR1;
 } MockTim2;
 
+extern MockPort sfr_PORTC;
 extern MockPort sfr_PORTD;
 extern MockTim2 sfr_TIM2;
 

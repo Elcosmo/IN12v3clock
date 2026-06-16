@@ -10,6 +10,11 @@
 void hc595Init (void) 
 {
 	// Initialize GPIOs for the pins used with the 74HC595
+
+	CLOCK_PIN = 0;
+	LATCH_PIN = 0;
+	OE_PIN = 1;
+	DATA_PIN = 0;
 	
 	// configure CLOCK_PIN as output
 	sfr_PORTD.DDR.DDR2 = 1;     // input(=0) or output(=1)
@@ -31,9 +36,18 @@ void hc595Init (void)
 	sfr_PORTC.CR1.C15  = 1;     // input: 0=float, 1=pull-up; output: 0=open-drain, 1=push-pull
 	sfr_PORTC.CR2.C25  = 1;     // input: 0=no exint, 1=exint; output: 0=2MHz slope, 1=10MHz slope	
 	
+	hc595OutputDisable();
+}
+
+void hc595OutputDisable (void)
+{
+	OE_PIN = 1;
+}
+
+void hc595OutputEnable (void)
+{
 	// enable output for the first 595 in chain, all other 595 OE inputs is on ground.
 	OE_PIN = 0;
-	
 }
 /*
 здесь нужно посмотреть на быстродействие этой фунции в прерывании,

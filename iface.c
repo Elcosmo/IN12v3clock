@@ -16,6 +16,7 @@ static void antipoisoningProc(void);
 static void iface_display(void);
 static void iface_display_nixie_scheduled(uint8_t *data, uint8_t full_bright_bitmask);
 static void iface_display_nixie(uint8_t *data, uint8_t full_bright_bitmask);
+static void iface_display_nixie_off(void);
 static void iface_disp2decDigit (uint8_t value, uint8_t *d0, uint8_t *d1);
 static void iface_disp3decDigit (uint16_t value, uint8_t *d0, uint8_t *d1, uint8_t *d2);
 static void iface_disp2bcdDigit (uint8_t value, uint8_t *d0, uint8_t *d1);
@@ -27,7 +28,7 @@ static uint8_t iface_output_gate_update(void);
 void iface_init( void )
 {
 	i.display_state = SETUP_NO;
-	ds3231_read_time(&i.seconds,&i.minutes,&i.hours,&i.weekday);
+	i.rtcValid = ds3231_read_time(&i.seconds,&i.minutes,&i.hours,&i.weekday);
 	i.hoursOld = i.hours;
 	i.minutesOld = i.minutes;
 	memset(i.apFlagEn,0,sizeof(i.apFlagEn));
@@ -127,8 +128,8 @@ static void timer50msProc(void)
 	static uint8_t secondsLast;
 	
 	if (i.display_state == SETUP_NO){
-		ds3231_read_time(&i.seconds,&i.minutes,&i.hours,&i.weekday);
-		if (i.seconds != secondsLast){
+		i.rtcValid = ds3231_read_time(&i.seconds,&i.minutes,&i.hours,&i.weekday);
+		if (i.rtcValid && (i.seconds != secondsLast)){
 			secondsLast = i.seconds;
 			displayDotPulse();
 		}
@@ -200,6 +201,7 @@ void iface_start_antipoisoning(void)
 
 static uint8_t iface_schedule_enabled(void)
 {
+	if (!i.rtcValid) {return 0;}
 	return schedule_display_enabled(i.weekday,time_to_minutes(bcd_to_decimal(i.hours), bcd_to_decimal(i.minutes)));
 }
 
@@ -217,12 +219,10 @@ static uint8_t iface_output_gate_update(void)
 
 static void iface_display_nixie_scheduled(uint8_t *data, uint8_t full_bright_bitmask)
 {
-	uint8_t off_data[NIXIE_COUNT] = {NIXIE_OFF,NIXIE_OFF,NIXIE_OFF,NIXIE_OFF};
-
 	if (iface_schedule_enabled()){
 		displayNixie(data,full_bright_bitmask);
 	} else {
-		displayNixie(&off_data[0],0);
+		iface_display_nixie_off();
 	}
 }
 
@@ -233,6 +233,12 @@ static void iface_display_nixie(uint8_t *data, uint8_t full_bright_bitmask)
 	} else {
 		iface_display_nixie_scheduled(data,full_bright_bitmask);
 	}
+}
+
+static void iface_display_nixie_off(void)
+{
+	uint8_t off_data[NIXIE_COUNT] = {NIXIE_OFF,NIXIE_OFF,NIXIE_OFF,NIXIE_OFF};
+	displayNixie(&off_data[0],0);
 }
 
 static void iface_display(void)
@@ -247,6 +253,13 @@ static void iface_display(void)
 
 	switch(i.display_state){
 		case SETUP_NO:
+			if (!i.rtcValid) {
+				i.antipoisoningEn = 0;
+				iface_display_nixie_off();
+				displayDot(0);
+				displayRGBGateSet(0);
+				break;
+			}
 			current_minutes = time_to_minutes(bcd_to_decimal(i.hours), bcd_to_decimal(i.minutes));
 			start_minutes 	=	time_to_minutes(e.nBrightStartH, e.nBrightStartM);
 			end_minutes 		= time_to_minutes(e.nBrightEndH, e.nBrightEndM);

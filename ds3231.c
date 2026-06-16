@@ -8,7 +8,37 @@ void ds3231Init(void)
 	// дописать инициализацию, особенно часов, чтобы был только 24 часа формат времени
 }
 
-void ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours, uint8_t *weekday)
+static uint8_t ds3231_bcd_00_59_valid(uint8_t value)
+{
+	if (value & 0x80) {return 0;}
+	if ((value & 0x0F) > 9) {return 0;}
+	if (((value >> 4) & 0x07) > 5) {return 0;}
+	return 1;
+}
+
+static void ds3231_set_safe_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours, uint8_t *weekday)
+{
+	*seconds = 0;
+	*minutes = 0;
+	*hours = 0;
+	*weekday = 1;
+}
+
+uint8_t ds3231_time_valid(uint8_t seconds, uint8_t minutes, uint8_t hours, uint8_t weekday)
+{
+	uint8_t hour_decimal;
+
+	if (!ds3231_bcd_00_59_valid(seconds)) {return 0;}
+	if (!ds3231_bcd_00_59_valid(minutes)) {return 0;}
+	if (hours & 0xC0) {return 0;}
+	if ((hours & 0x0F) > 9) {return 0;}
+	hour_decimal = ((hours >> 4) * 10) + (hours & 0x0F);
+	if (hour_decimal > 23) {return 0;}
+	if ((weekday < 1)||(weekday > 7)) {return 0;}
+	return 1;
+}
+
+uint8_t ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours, uint8_t *weekday)
 {
 	if (i2c_busy_check() == OK){
 		i2c_start();
@@ -22,21 +52,31 @@ void ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours, uint8_
 				i2c_shift(DS3231_ADDRESS | 0x01);
 				if (i2c_ack(READ_ANSWER)==ACK)
 				{
-					*seconds = i2c_shift(0xFF); i2c_ack(SET_ACK);
-					*minutes = i2c_shift(0xFF); i2c_ack(SET_ACK);
-					*hours = i2c_shift(0xFF); 	i2c_ack(SET_ACK);
-					*weekday = i2c_shift(0xFF); i2c_ack(SET_NAK);
-					if ((*weekday < 1)||(*weekday > 7)) {*weekday = 1;}
+					uint8_t rtc_seconds = i2c_shift(0xFF); i2c_ack(SET_ACK);
+					uint8_t rtc_minutes = i2c_shift(0xFF); i2c_ack(SET_ACK);
+					uint8_t rtc_hours = i2c_shift(0xFF); 	i2c_ack(SET_ACK);
+					uint8_t rtc_weekday = i2c_shift(0xFF); i2c_ack(SET_NAK);
 					i2c_stop();
-					return;
+					if (ds3231_time_valid(rtc_seconds,rtc_minutes,rtc_hours,rtc_weekday)){
+						*seconds = rtc_seconds;
+						*minutes = rtc_minutes;
+						*hours = rtc_hours;
+						*weekday = rtc_weekday;
+						return 1;
+					}
+					ds3231_set_safe_time(seconds,minutes,hours,weekday);
+					return 0;
 				}
 			}
 		}
 	}else{
 		i2c_slave_unlock();
-		return;
+		ds3231_set_safe_time(seconds,minutes,hours,weekday);
+		return 0;
 	}
 	i2c_stop();
+	ds3231_set_safe_time(seconds,minutes,hours,weekday);
+	return 0;
 }
 
 void ds3231_write_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours)

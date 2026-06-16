@@ -6,6 +6,7 @@
 #include "eeprom.h"
 
 MockPort sfr_PORTD;
+MockPort sfr_PORTC;
 MockTim2 sfr_TIM2;
 Edata e;
 
@@ -15,6 +16,10 @@ static uint16_t rgb_g;
 static uint16_t rgb_b;
 static unsigned eeprom_read_count;
 static unsigned eeprom_write_count;
+static unsigned hc595_init_count;
+static unsigned hc595_shift_count;
+static unsigned hc595_enable_count;
+static uint8_t hc595_zero_latched;
 static unsigned failures;
 
 static void fail(const char *message)
@@ -69,12 +74,44 @@ static void expect_saved_config_unchanged(uint8_t colon_type,
 
 void hc595Init(void)
 {
+	hc595_init_count++;
 }
 
 void hc595ChainShiftOut(uint8_t *data, uint8_t lenght)
 {
-	(void)data;
-	(void)lenght;
+	uint8_t k;
+
+	hc595_shift_count++;
+	if (sfr_TIM2.CR1.CEN) {
+		fail("timer running before HC595 zero latch");
+	}
+	if (lenght != 5) {
+		printf("FAIL hc595 zero length=%u\n", (unsigned)lenght);
+		failures++;
+	}
+	hc595_zero_latched = 1;
+	for (k = 0; k < lenght; k++) {
+		if (data[k] != 0) {
+			printf("FAIL hc595 init data[%u]=0x%02X\n", (unsigned)k, (unsigned)data[k]);
+			failures++;
+			hc595_zero_latched = 0;
+		}
+	}
+}
+
+void hc595OutputDisable(void)
+{
+}
+
+void hc595OutputEnable(void)
+{
+	hc595_enable_count++;
+	if (!hc595_zero_latched) {
+		fail("HC595 output enabled before zero latch");
+	}
+	if (!sfr_TIM2.CR1.CEN) {
+		fail("HC595 output enabled before timer start");
+	}
 }
 
 void RGBinit(void)
@@ -121,6 +158,7 @@ int main(void)
 	const uint8_t saved_blue = 204;
 
 	memset(&sfr_PORTD, 0, sizeof(sfr_PORTD));
+	memset(&sfr_PORTC, 0, sizeof(sfr_PORTC));
 	memset(&sfr_TIM2, 0, sizeof(sfr_TIM2));
 	memset(&e, 0, sizeof(e));
 	memset(mock_eeprom, 0, sizeof(mock_eeprom));
@@ -133,6 +171,13 @@ int main(void)
 
 	displayInit();
 	expect_zero_rgb("init rgb gate closed");
+	if (hc595_init_count != 1 || hc595_shift_count != 1 || hc595_enable_count != 1) {
+		printf("FAIL hc595 init=%u shift=%u enable=%u\n",
+		       hc595_init_count,
+		       hc595_shift_count,
+		       hc595_enable_count);
+		failures++;
+	}
 
 	displayRGBGateSet(1);
 	expect_u16("rgb gate reopen red", rgb_r, expected_scaled(saved_red));
@@ -155,6 +200,7 @@ int main(void)
 	expect_u16("rgb requested state restored green", rgb_g, expected_scaled(saved_green));
 	expect_u16("rgb requested state restored blue", rgb_b, expected_scaled(saved_blue));
 
+	displayDotGateSet(1);
 	displayDot(1);
 	if (sfr_TIM2.IER.CC2IE == 0) {
 		fail("dot did not enable while gate open");
