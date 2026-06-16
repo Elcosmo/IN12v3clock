@@ -15,6 +15,10 @@ static 					uint8_t displayDotGate = 1;
 static 					uint8_t displayRgbState;
 static 					uint8_t displayRgbGate;
 
+#define DOT_PULSE_PEAK_STEP		16
+#define DOT_PULSE_LAST_STEP		32
+#define DOT_PULSE_BRIGHT_STEP	6
+
 static uint8_t *displayNixieBuffPrepare(uint8_t *inbuff, uint8_t dmask);
 static void displaySetDotBright( uint8_t bright);
 static void displayRGBapply(void);
@@ -302,12 +306,14 @@ void displayDotPulseProc (void)
 			displaySetDotBright(0);
 			break;
 		default:
-			if (dotPulseCounter < 25) {
-				displaySetDotBright(dotPulseCounter * 4);
-			} else if (dotPulseCounter < 50) {
-				displaySetDotBright((49 - dotPulseCounter) * 4);
+			if (dotPulseCounter <= DOT_PULSE_PEAK_STEP) {
+				displaySetDotBright(dotPulseCounter * DOT_PULSE_BRIGHT_STEP);
+			} else if (dotPulseCounter <= DOT_PULSE_LAST_STEP) {
+				displaySetDotBright((DOT_PULSE_LAST_STEP - dotPulseCounter) * DOT_PULSE_BRIGHT_STEP);
+			} else {
+				displaySetDotBright(0);
 			}
-			if (dotPulseCounter < 50) {
+			if (dotPulseCounter <= DOT_PULSE_LAST_STEP) {
 				dotPulseCounter++;
 			}
 			break;
