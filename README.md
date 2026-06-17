@@ -1,273 +1,233 @@
-
 # IN12v3clock
 
-Alternate firmware for the GeekStyles IN12 V3 Nixie nixieclock PCB.
+Firmware alternativo per la scheda Nixie GeekStyles IN12 V3, nota anche come
+JM NixieClock IN12 V4.2.
 
-## Version
-- **1.00**: Initial release.
+Questa variante e' destinata alla scheda reale con:
 
-## Description
-This firmware is designed for the IN12 V3 clock PCB, 
-with frontside inscription: **GeekStyles IN12 V3**  
+- serigrafia frontale: `GeekStyles IN12 V3`;
+- serigrafia posteriore: `JM NixieClock IN12 V4.2 20190514`;
+- MCU `STM8S003F3P6`;
+- RTC `DS3231`;
+- tubi `IN-12`;
+- catena di shift register 74HC595 e driver 2003A/ULN2003A;
+- batteria tampone RTC `CR1220`.
+
+Foto della scheda:
+
 [![Frontside Preview](Photo/pcb_front_preview.JPG)](Photo/pcb_front_fullsize.JPG)
-and the backside inscription: **JM NixieClock IN12 V4.2 20190514**.   
 [![Backside Preview](Photo/pcb_back_preview.JPG)](Photo/pcb_back_fullsize.JPG)
-The STM8S003F3P6 microcontroller features 8 KB of Flash memory, 1 KB of RAM, and 128 bytes of EEPROM.
 
----
+## Stato del firmware
 
-## Requirements
-1. **Cosmic STM8 compiller + STVD**
-2. Alternate is the **SDCC compiller** (the binary file is slightly larger compared to COSMIC).
-3. **External Libraries**:
-- Added submodule: [STM8_headers](https://github.com/gicking/STM8_headers).
-  
----
+Questa repo conserva il firmware originale come base, ma aggiunge una serie di
+modifiche specifiche per l'uso quotidiano della scheda:
 
-## Important Configuration
-Before flashing the firmware, set the option byte `AFR0` in the ST Visual Programmer:
-- **Port C5, C6 & C7**: Configure to **Alternate Function**.
+- lettura e validazione rigorosa del DS3231;
+- lettura e impostazione manuale del weekday DS3231;
+- convenzione weekday: `1=lunedi`, `2=martedi`, ..., `7=domenica`;
+- spegnimento programmato di Nixie, RGB e colon;
+- menu 12 per impostare il weekday;
+- safe boot della catena HC595, con uscite spente prima dell'abilitazione;
+- colon digitale stabile, senza PWM: 1 secondo acceso / 1 secondo spento;
+- test host per schedule, DS3231, formato S19, gate uscite e safe boot;
+- build riproducibile con Docker e SDCC.
 
----
+Il firmware continua a mostrare solo ore e minuti sui quattro Nixie. I secondi
+vengono letti internamente dal DS3231 e usati per sincronizzare il colon.
 
-## Pinout
-### Microcontroller Pin Assignment
-| Pin  | Signal                          | Description                                                        |
-|------|---------------------------------|--------------------------------------------------------------------|
-| 1    | PD4 (HS) UART1_CK/TIM2_CH1/BEEP | Input: Button UP with 10k pull-up resistor. Grounded when pressed.     |
-| 2    | PD5 (HS) UART1_TX/AIN5          | Input: Button DOWN with 10k pull-up resistor. Grounded when pressed.   |
-| 3    | PD6 (HS) UART1_RX               | Output: Drives colon neons (DS1 & DS2) through 1k resistor.       |
-| 4    | NRST                            | Debug connector pin 3.                                             |
-| 5    | PA1 OSCIN                       | Clock input.                                                       |
-| 6    | PA2 OSCOUT                      | Clock output.                                                      |
-| 7    | Vss                             | Ground.                                                            |
-| 8    | Vcap                            | Decoupling capacitor.                                              |
-| 9    | Vdd                             | +3.3V supply.                                                      |
-| 10   | PA3 (HS) SPI_NSS/TIM2_CH3       | Reserved.                                                          |
-| 11   | PB5 (T) I2C_SDA/TIM1_BKIN       | I2C SDA for DS3231 RTC with 10k pull-up resistor.                  |
-| 12   | PB4 (T) I2C_SCL/ADC_ETR         | I2C SCL for DS3231 RTC with 10k pull-up resistor.                  |
-| 13   | PC3 (HS) TIM1_CH3               | Drives LEDs (red) through 1k resistor.                             |
-| 14   | PC4 (HS) TIM1_CH4               | Drives LEDs (blue) through 1k resistor.                            |
-| 15   | PC5 (HS) SPI_SCK/TIM2_CH1       | Drives 595 shift register data input with 10k pull-up resistor.    |
-| 16   | PC6 (HS) SPI_MOSI/TIM1_CH1      | Drives LEDs (green) through 1k resistor.                           |
-| 17   | PC7 (HS) SPI_MISO/TIM1_CH2      | Drives 595 RCLK (latch) with 10k pull-up resistor.                 |
-| 18   | PD1 (HS) SWIM                   | Debug connector pin 2.                                             |
-| 19   | PD2 (HS) AIN3/TIM2_CH3          | Drives 595 SRCLK with 10k pull-up resistor.                        |
-| 20   | PD3 (HS) AIN4/TIM2_CH2          | Drives 595 U4 OE.                                                  |
+## Schedule feriale/weekend
 
-### Debug Connector
-| Pin | Signal | Description |
-|-----|--------|-------------|
-| 1   | 3.3V   | Power supply. |
-| 2   | SWIM   | Programming interface. |
-| 3   | NRST   | Reset.       |
-| 4   | GND    | Ground.      |
+Lo schedule usa il weekday del DS3231 e agisce come gate degli elementi visibili
+nel normale funzionamento.
 
----
+Lunedi-venerdi:
 
-## Shift Register Wiring
-The project uses a series of 74HC595 shift registers, driving 2003A darlington arrays to control the Nixie tubes. Here is the wiring layout:
+- acceso dalle `07:00` incluse alle `09:00` escluse;
+- acceso dalle `17:00` incluse alle `24:00` escluse.
 
-- **Shift Registers (595)**: Connected in series to control multiple outputs.
-- **Darlington Arrays (2003A)**: Drive the Nixie tubes from shift register outputs.
+Sabato-domenica:
 
+- acceso dalle `07:00` incluse alle `12:00` escluse;
+- acceso dalle `19:00` incluse alle `01:00` escluse del giorno successivo.
+
+Lo schedule considera anche la fascia iniziata il giorno precedente. Per esempio
+lunedi `00:30` resta acceso per la prosecuzione della domenica, mentre martedi
+`00:30` e' spento.
+
+Fuori fascia, durante il normale funzionamento:
+
+- Nixie spenti;
+- RGB spenti;
+- colon spento;
+- anti-avvelenamento non visibile;
+- RTC e microcontrollore restano attivi.
+
+I menu restano utilizzabili anche fuori fascia: i Nixie possono essere mostrati
+per configurare la scheda, mentre RGB e colon restano gestiti dal gate.
+
+## Comandi e menu
+
+Tasti:
+
+- `K1`: tasto superiore;
+- `K2`: tasto inferiore.
+
+Comandi rapidi:
+
+- pressione breve `K1`: avvia anti-avvelenamento;
+- pressione breve `K2`: commuta RGB globale, o RGB notte quando la modalita'
+  notte e' attiva;
+- pressione lunga `K1`: impostazione ora;
+- pressione lunga `K2`: regolazione colore RGB;
+- pressione lunga `K1 + K2`: menu impostazioni.
+
+Impostazione ora:
+
+- `K1` incrementa ore o minuti;
+- `K2` passa da ore a minuti e poi salva;
+- al salvataggio i secondi vengono scritti a `00` nel DS3231.
+
+Menu impostazioni:
+
+| Menu | Funzione | Valori |
+|------|----------|--------|
+| 0 | Zero iniziale ora | `0` disabilitato, `1` abilitato |
+| 1 | Formato ora | `0` 24h, `1` 12h |
+| 2 | Luminosita' normale Nixie | `5..100` |
+| 3 | Luminosita' notte Nixie | `5..100` |
+| 4 | Luminosita' notte abilitata | `0` no, `1` si |
+| 5 | Ora inizio notte | `0..23` o `1..12` secondo formato |
+| 6 | Minuto inizio notte | `0..59` |
+| 7 | Ora fine notte | `0..23` o `1..12` secondo formato |
+| 8 | Minuto fine notte | `0..59` |
+| 9 | RGB in modalita' notte | `0` spento, `1` acceso |
+| 10 | Anti-avvelenamento solo notte | `0` normale, `1` solo notte |
+| 11 | Colon | `0` 1 secondo ON / 1 secondo OFF, `1` sempre ON, `2` sempre OFF |
+| 12 | Weekday DS3231 | `1..7`, lunedi..domenica |
+
+Il menu 12 scrive solo il registro weekday del DS3231. Non usa EEPROM.
+
+## Configurazione consigliata
+
+1. Montare una CR1220 buona prima di configurare ora e weekday.
+2. Impostare ora e minuti con pressione lunga di `K1`.
+3. Impostare il weekday con menu `12`.
+4. Usare menu `1 = 0` per formato 24h, salvo preferenze diverse.
+5. Usare menu `11 = 0` per colon digitale: acceso sui secondi pari, spento sui
+   secondi dispari.
+6. Regolare luminosita' normale e notte con menu `2` e `3`.
+7. Lasciare invariati EEPROM e Option Byte durante gli aggiornamenti firmware.
+
+Se il DS3231 contiene valori invalidi, il firmware tiene spenti Nixie, RGB e
+colon nel normale funzionamento. I menu restano accessibili: impostare ora e
+weekday, poi alla lettura valida successiva il funzionamento riprende.
+
+## Anti-avvelenamento
+
+L'anti-avvelenamento esegue una rotazione controllata dei catodi dei Nixie.
+Fuori dalle fasce attive dello schedule non produce accensioni visibili.
+
+Il menu `10` controlla quando viene eseguito:
+
+- `0`: comportamento normale, ogni 6 minuti;
+- `1`: solo nella fascia notte configurata, ogni 2 minuti.
+
+## Batteria CR1220
+
+La CR1220 alimenta il DS3231 quando la scheda e' scollegata. Se e' scarica o
+assente, ora e weekday possono andare persi. In caso di ora corrotta, il firmware
+non mostra valori RTC invalidi: usare i menu per reimpostare ora e weekday.
+
+## Build Docker / SDCC
+
+La build supportata usa Docker Compose e SDCC. Il submodule `STM8_headers` deve
+essere inizializzato.
+
+```bash
+git submodule update --init --recursive
+docker compose build
+docker compose run --rm sdcc make clean
+docker compose run --rm sdcc make
 ```
-PC5
-|
-V
-595 U4
-Q0 -> 2003A U5  I1, O1-> N4 0
-Q1 -> 2003A U5  I2, O2-> N4 1
-Q2 -> 2003A U5  I3, O3-> N4 2
-Q3 -> 2003A U5  I4, O4-> N4 3
-Q4 -> 2003A U5  I5, O5-> N4 4
-Q5 -> 2003A U5  I6, O6-> N4 5
-Q6 -> 2003A U5  I7, O7-> N4 6
-Q7 -> 2003A U6  I1, O1-> N4 7
-|
-V
-595 U7
-Q0 -> 2003A U6  I2, O2-> N4 8
-Q1 -> 2003A U6  I3, O3-> N4 9
-Q2 -> 2003A U6  I4, O4-> N3 0
-Q3 -> 2003A U6  I5, O5-> N3 1
-Q4 -> 2003A U6  I6, O6-> N3 2
-Q5 -> 2003A U6  I7, O7-> N3 3
-Q6 -> 2003A U8  I1, O1-> N3 4
-Q7 -> 2003A U8  I2, O2-> N3 5
-|
-V
-595 U9
-Q0 -> 2003A U8  I3, O3-> N3 6
-Q1 -> 2003A U8  I4, O4-> N3 7
-Q2 -> 2003A U8  I5, O5-> N3 8
-Q3 -> 2003A U8  I6, O6-> N3 9
-Q4 -> 2003A U8  I7, O7-> N2 0
-Q5 -> 2003A U10 I1, O1-> N2 1
-Q6 -> 2003A U10 I2, O2-> N2 2
-Q7 -> 2003A U10 I3, O3-> N2 3
-|
-V
-595 U11
-Q0 -> 2003A U10 I4, O4-> N2 4
-Q1 -> 2003A U10 I5, O5-> N2 5
-Q2 -> 2003A U10 I6, O6-> N2 6
-Q3 -> 2003A U10 I7, O7-> N2 7
-Q4 -> 2003A U12 I1, O1-> N2 8
-Q5 -> 2003A U12 I2, O2-> N2 9
-Q6 -> 2003A U12 I3, O3-> N1 0
-Q7 -> 2003A U12 I4, O4-> N1 1
-|
-V
-595 U13
-Q0 -> 2003A U12 I5, O5-> N1 2
-Q1 -> 2003A U12 I6, O6-> N1 3
-Q2 -> 2003A U12 I7, O7-> N1 4
-Q3 -> 2003A U14 I1, O1-> N1 5
-Q4 -> 2003A U14 I2, O2-> N1 6
-Q5 -> 2003A U14 I3, O3-> N1 7
-Q6 -> 2003A U14 I4, O4-> N1 8
-Q7 -> 2003A U14 I5, O5-> N1 9
+
+Artefatti principali:
+
+- `SDCC/main.s19`;
+- `SDCC/main.ihx`;
+- `SDCC/main.map`.
+
+Il microcontrollore ha 8192 byte di Program Memory. La CI fallisce se la Flash
+calcolata dal map supera 8192 byte.
+
+## Test
+
+Lo script unico per test host e build STM8 e':
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci.ps1
 ```
 
----
+Lo script esegue:
 
-## Usage
-1. Clone the repository with submodules:
-   ```bash
-   git clone --recurse-submodules <repository_url>
-   ```
+- test esaustivo dello schedule settimanale;
+- test protocollo e validazione DS3231;
+- test formato S19;
+- test safe boot HC595;
+- test gate uscite visibili e colon digitale;
+- test recovery RTC/menu;
+- build Docker/SDCC pulita;
+- validazione del file `SDCC/main.s19`;
+- controllo dimensione Flash.
 
- **When using COSMIC:**
- - Compile the firmware using Cosmic STM8 v4.6 toolchain. 
- - Or use precompiled firmware file: `Release\in12v3clock.s19` 
+## GitHub Actions
 
- **When using SDCC:**
- - Install Docker.
- - Open Windows Terminal.
- - Run the `run.cmd` file.
- - Run command `make clean` in the terminal window.
- - Run command `make` in the terminal window.
- - Or use the precompiled files (`main.s19` or `main.ihx`) located in the `SDCC` directory.
-2. Flash the firmware to the STM8S003F3P6 microcontroller.
-- The `in12v3clock_Programmer` directory contains a project for the STVP programmer with a default EEPROM file and a default OPTION BYTE file.
+Il workflow `.github/workflows/firmware-ci.yml` gira su push e pull request verso
+`master`, clona i submodule, esegue `scripts/ci.ps1` e carica `main.s19`,
+`main.ihx` e `main.map` come artifact.
 
- - SWD pinout:
- 
- ![SWD pinout](Photo/swd_pinout.jpg)
+## Collegamento ST-Link
 
+Connettore debug della scheda:
 
- Here you can find the pinout of your ST-Link programmer:  
- [Wiki: ST-Link Pinout](https://wiki.cuvoodoo.info/doku.php?id=jtag)
+| Pin | Segnale | Descrizione |
+|-----|---------|-------------|
+| 1 | 3.3V | alimentazione/riferimento |
+| 2 | SWIM | interfaccia programmazione |
+| 3 | NRST | reset |
+| 4 | GND | massa |
 
-3. Verify the board's functionality.
+Collegare almeno `SWIM`, `NRST` e `GND`; usare 3.3 V solo se l'alimentazione
+della scheda e del programmatore lo richiede ed e' sicura. Non applicare 5 V alla
+logica STM8.
 
----
+Pin STM8 rilevanti:
 
-# **Clock Control and Setup Guide**
+- `PD1`: SWIM;
+- `NRST`: reset;
+- `PB5/PB4`: I2C DS3231;
+- `PD6`: colon;
+- `PC5/PC7/PD2/PD3`: catena HC595;
+- `PC3/PC4/PC6`: RGB.
 
-<details>
-<summary>Show Full Instruction</summary>
+![SWD pinout](Photo/swd_pinout.jpg)
 
-## **Key Definitions:**
-- **K1** — Upper button.
-- **K2** — Lower button.
+## Programmazione
 
----
+Per aggiornare una scheda gia' configurata con RC recenti, programmare soltanto
+la Program Memory con `main.s19`.
 
-## **Basic Control:**
-1. **Single press of K1** — Executes the cathode poisoning prevention algorithm.
-2. **Single press of K2** — Toggles the RGB lamp backlight.  
-   - In night mode, toggles the backlight for night operation.
-3. **Hold K1 (> 2 seconds)** — Activates time setup mode.
-4. **Hold K2 (> 2 seconds)** — Activates backlight color adjustment mode.
-5. **Hold K1 and K2 simultaneously (> 2 seconds)** — Activates the settings menu.
+Non programmare Data EEPROM e Option Byte durante aggiornamenti ordinari:
 
----
+- la EEPROM contiene le impostazioni salvate;
+- gli Option Byte includono configurazioni hardware delicate;
+- ROP puo' impedire il readback/backup del firmware originale;
+- AFR0 deve restare coerente con la scheda per non rompere le funzioni dei pin
+  usati dalla catena di controllo.
 
-## **Time Setup Mode:**
-1. **Entering the mode:** Hold K1 for more than 2 seconds.
-2. **Hour adjustment:**
-   - The hour digits start blinking.
-   - **K1:** Increases the hour value by 1.
-     - Holding K1 (> 0.8 seconds): Continuously increases the hour value.
-   - **K2:** Switches to minute adjustment.
-3. **Minute adjustment:**
-   - The minute digits start blinking.
-   - **K1:** Increases the minute value by 1.
-     - Holding K1 (> 0.8 seconds): Continuously increases the minute value.
-   - **K2:** Saves the time (seconds reset to zero) and exits the setup mode.
+Prima di ogni flash, tentare un backup del firmware originale. Se ROP e' attivo,
+il backup puo' non essere possibile senza cancellare il dispositivo.
 
----
+## Licenza
 
-## **Backlight Color Adjustment Mode:**
-1. **Entering the mode:** Hold K2 for more than 2 seconds.
-2. **Adjustment sequence:**
-   - **Red (digit "1" blinks).**
-   - **Green (digit "2" blinks).**
-   - **Blue (digit "3" blinks).**
-3. **Brightness adjustment:**
-   - **K1:** Increases brightness by 1 (range: 0–255).
-     - Holding K1 (> 0.8 seconds): Continuously increases brightness.
-   - **K2:** Saves the current value and proceeds to the next color.
-4. **Exiting the mode:** After adjusting blue brightness, the mode exits automatically.
-
----
-
-## **Settings Menu:**
-1. **Entering the menu:** Hold K1 and K2 simultaneously for more than 2 seconds.
-2. **Display behavior:**
-   - **Tens of hours digit:** Displays the menu item number.
-   - **Other digits:** Show the parameter value.
-3. **Control:**
-   - **K1:** Adjusts the parameter value.
-   - **K2:** Saves the parameter and moves to the next menu item.
-4. ## Menu Items:  
-
-    **0.** **Leading zero display:**  
-         `0` — Disabled  
-         `1` — Enabled  
-
-    **1.** **Time format:**  
-         `0` — 24-hour  
-         `1` — 12-hour  
-
-    **2.** **Normal mode indicator brightness:**  
-         `5%–100%`  
-
-    **3.** **Night mode indicator brightness:**  
-         `5%–100%`  
-
-    **4.** **Night brightness enable:**  
-         `0` — Disabled  
-         `1` — Enabled  
-
-    **5.** **Night interval start hour.**  
-
-    **6.** **Night interval start minute.**  
-
-    **7.** **Night interval end hour.**  
-
-    **8.** **Night interval end minute.**  
-
-    **9.** **RGB backlight in night mode:**  
-         `0` — Disabled  
-         `1` — Enabled  
-
-    **10.** **Cathode poisoning prevention in night mode:**  
-         `0` — Every 6 minutes during normal operation  
-         `1` — Every 2 minutes (only at night)  
-
-    **11.** **Colon blinking type:**  
-         `0` — Default blinking  
-         `1` — Colon always on  
-         `2` — Colon always off  
-    
-5. **Exiting the menu:** After the last menu item, the clock returns to normal time display mode.
-
-</details>
-
----
-
-## License
-This project is distributed under the **MIT License**.
+Questo progetto e' distribuito con licenza MIT.

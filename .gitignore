@@ -8,3 +8,4 @@
 !/SDCC/*.ihx
 !/SDCC/*.hex
 /.idea
+/custom_release/

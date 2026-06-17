@@ -1,0 +1,33 @@
+name: Firmware CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run host tests and STM8 build
+        shell: pwsh
+        run: ./scripts/ci.ps1
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: in12v3clock-firmware
+          if-no-files-found: error
+          path: |
+            SDCC/main.s19
+            SDCC/main.ihx
+            SDCC/main.map
