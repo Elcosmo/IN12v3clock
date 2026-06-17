@@ -8,26 +8,13 @@
 
 static volatile	uint8_t zero_data[5] 							= {0,0,0,0,0};
 static volatile uint8_t disp_data[5]							= {0,0,0,0,0};
-static 					uint8_t dotPulsePhase;
-static 					uint8_t dotPulseDivider;
 			 volatile uint8_t flag10ms;
 static 					uint16_t displayBright;
 static 					uint8_t displayDotGate = 1;
 static 					uint8_t displayRgbState;
 static 					uint8_t displayRgbGate;
 
-#define DOT_PULSE_LUT_SIZE		24U
-#define DOT_PULSE_PHASES			(DOT_PULSE_LUT_SIZE * 2U)
-#define DOT_PULSE_DIVIDER			2U
-
-static const uint8_t dotPulseLut[DOT_PULSE_LUT_SIZE] = {
-	24, 24, 25, 27, 29, 32, 35, 39,
-	43, 48, 53, 58, 62, 67, 72, 77,
-	81, 85, 88, 91, 93, 95, 96, 96
-};
-
 static uint8_t *displayNixieBuffPrepare(uint8_t *inbuff, uint8_t dmask);
-static void displaySetDotBright( uint8_t bright);
 static void displayRGBapply(void);
 
 void displayInit ( void )
@@ -291,59 +278,7 @@ void displayDotGateSet (uint8_t state)
 {
 	displayDotGate = state;
 	if (!displayDotGate) {
-		dotPulsePhase = 0;
-		dotPulseDivider = 0;
-		displaySetDotBright(0);
-	}
-}
-
-void displayDotPulseProc (void)
-{
-	uint8_t phase;
-
-	switch (e.colonBlinkingType) {
-		case 1:
-			displaySetDotBright(50 * 4);
-			break;
-		case 2:
-			displaySetDotBright(0);
-			break;
-		default:
-			if (!displayDotGate) {
-				dotPulsePhase = 0;
-				dotPulseDivider = 0;
-				displaySetDotBright(0);
-				break;
-			}
-			phase = dotPulsePhase;
-			if (phase >= DOT_PULSE_LUT_SIZE) {
-				phase = (DOT_PULSE_PHASES - 1U) - phase;
-			}
-			displaySetDotBright(dotPulseLut[phase]);
-			if (++dotPulseDivider >= DOT_PULSE_DIVIDER) {
-				dotPulseDivider = 0;
-				if (++dotPulsePhase >= DOT_PULSE_PHASES) {
-					dotPulsePhase = 0;
-				}
-			}
-			break;
-	}
-}
-
-static void displaySetDotBright( uint8_t bright)
-{
-	uint16_t b;
-	
-	if (!displayDotGate) {bright = 0;}
-	if (bright == 0) {
-		sfr_TIM2.IER.CC2IE 		= 0;						// TIM2 channel 2 compare interrupt disable
-		DOT_PIN = 0;
-	}else {
-		b = scale(bright,100,displayBright);
-		if (b < DOT_MIN_BRIGHT) {b = DOT_MIN_BRIGHT;}
-		sfr_TIM2.CCR2H.byte = hibyte(b);		// set PWM channel 2 duty period
-		sfr_TIM2.CCR2L.byte = lobyte(b);
-		sfr_TIM2.IER.CC2IE 		= 1;					// TIM2 channel 2 compare interrupt enable
+		displayDot(0);
 	}
 }
 

@@ -254,6 +254,22 @@ static void iface_display(void)
 				displayRGBGateSet(0);
 				break;
 			}
+			if (!schedule_enabled) {
+				displayDot(0);
+			} else {
+				switch (e.colonBlinkingType) {
+					case 1:
+						displayDot(1);
+						break;
+					case 2:
+						displayDot(0);
+						break;
+					default:
+						/* BCD seconds preserve parity in bit 0: even = colon ON, odd = colon OFF. */
+						displayDot((i.seconds & 1U) == 0);
+						break;
+				}
+			}
 			current_minutes = time_to_minutes(bcd_to_decimal(i.hours), bcd_to_decimal(i.minutes));
 			start_minutes 	=	time_to_minutes(e.nBrightStartH, e.nBrightStartM);
 			end_minutes 		= time_to_minutes(e.nBrightEndH, e.nBrightEndM);

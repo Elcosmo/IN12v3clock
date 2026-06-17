@@ -18,13 +18,12 @@ static uint8_t last_dot_request;
 static uint8_t last_dot_gate = 1;
 static uint8_t last_rgb_gate = 1;
 static uint8_t last_rgb_state;
-static uint8_t dot_pulses;
 static uint8_t display_nixie_calls;
 static unsigned rtc_reads;
 static uint8_t mock_seconds = 0x02;
-static const uint8_t *mock_seconds_sequence;
-static unsigned mock_seconds_count;
-static unsigned mock_seconds_index;
+static uint8_t mock_minutes = 0x31;
+static uint8_t mock_hours = 0x07;
+static uint8_t mock_weekday = 1;
 static unsigned failures;
 
 static void fail(const char *message)
@@ -56,17 +55,12 @@ static void run_display_period(void)
 	run_iface_events(250);
 }
 
-static void run_until_rtc_reads(unsigned target)
+static void set_mock_time(uint8_t seconds, uint8_t minutes, uint8_t hours, uint8_t weekday)
 {
-	unsigned guard = 0;
-
-	while ((rtc_reads < target) && (guard < 1000)) {
-		run_iface_events(1);
-		guard++;
-	}
-	if (rtc_reads < target) {
-		fail("timed out waiting for RTC reads");
-	}
+	mock_seconds = seconds;
+	mock_minutes = minutes;
+	mock_hours = hours;
+	mock_weekday = weekday;
 }
 
 static uint8_t nixie_all_off(void)
@@ -123,14 +117,10 @@ uint8_t ds3231_read_time(uint8_t *seconds, uint8_t *minutes, uint8_t *hours, uin
 		*weekday = 1;
 		return 0;
 	}
-	if (mock_seconds_sequence && (mock_seconds_index < mock_seconds_count)) {
-		*seconds = mock_seconds_sequence[mock_seconds_index++];
-	} else {
-		*seconds = mock_seconds;
-	}
-	*minutes = 0x31;
-	*hours = 0x07;
-	*weekday = 1;
+	*seconds = mock_seconds;
+	*minutes = mock_minutes;
+	*hours = mock_hours;
+	*weekday = mock_weekday;
 	return 1;
 }
 
@@ -197,15 +187,6 @@ void displayDotGateSet(uint8_t state)
 	last_dot_gate = state ? 1 : 0;
 }
 
-void displayDotPulse(void)
-{
-	dot_pulses++;
-}
-
-void displayDotPulseProc(void)
-{
-}
-
 void displayRGBset(uint8_t state)
 {
 	last_rgb_state = state;
@@ -245,6 +226,28 @@ uint8_t EEPROM_readByte(uint16_t logAddr)
 	return 0;
 }
 
+static void expect_colon_state(const char *label,
+			       uint8_t seconds,
+			       uint8_t minutes,
+			       uint8_t hours,
+			       uint8_t weekday,
+			       uint8_t colon_type,
+			       uint8_t expected_gate,
+			       uint8_t expected_dot)
+{
+	set_mock_time(seconds,minutes,hours,weekday);
+	e.colonBlinkingType = colon_type;
+	i.display_state = SETUP_NO;
+	mock_rtc_valid = 1;
+	last_dot_request = 0xAA;
+	last_dot_gate = 0xAA;
+	run_display_period();
+	expect_u8(label, last_dot_request, expected_dot);
+	expect_u8("colon gate", last_dot_gate, expected_gate);
+	run_display_period();
+	expect_u8("colon stable in same second", last_dot_request, expected_dot);
+}
+
 int main(void)
 {
 	memset(&i,0,sizeof(i));
@@ -256,6 +259,7 @@ int main(void)
 	e.nBrightEn = 0;
 
 	mock_rtc_valid = 0;
+	set_mock_time(0x02,0x31,0x07,1);
 	iface_init();
 	expect_u8("rtc invalid after init", i.rtcValid, 0);
 	expect_u8("safe seconds", i.seconds, 0);
@@ -270,6 +274,7 @@ int main(void)
 	run_display_period();
 	expect_nixie_off("normal invalid rtc display off");
 	expect_u8("invalid rtc dot gate", last_dot_gate, 0);
+	expect_u8("invalid rtc dot off", last_dot_request, 0);
 	expect_u8("invalid rtc rgb gate", last_rgb_gate, 0);
 	expect_u8("invalid rtc antipoisoning stopped", i.antipoisoningEn, 0);
 
@@ -296,32 +301,23 @@ int main(void)
 	display_nixie_calls = 0;
 	run_display_period();
 	expect_u8("rtc recovered", i.rtcValid, 1);
-	expect_u8("rtc reads do not pulse colon", dot_pulses, 0);
 	expect_u8("normal display called after recovery", display_nixie_calls > 0, 1);
 	expect_nixie_digits("normal display recovered", 1, 3, 7, NIXIE_OFF);
 	expect_u8("rgb desired restored after recovery", last_rgb_state, 1);
 	expect_u8("rgb gate open after recovery", last_rgb_gate, 1);
 
-	{
-		static const uint8_t seconds_sequence[] = {0x03, 0x04, 0x05, 0x06};
-		unsigned read_start;
-		uint8_t pulse_start;
-
-		mock_seconds_sequence = seconds_sequence;
-		mock_seconds_count = sizeof(seconds_sequence) / sizeof(seconds_sequence[0]);
-		mock_seconds_index = 0;
-		read_start = rtc_reads;
-		pulse_start = dot_pulses;
-
-		run_until_rtc_reads(read_start + 1);
-		expect_u8("odd second does not pulse", dot_pulses, pulse_start);
-		run_until_rtc_reads(read_start + 2);
-		expect_u8("even second does not pulse", dot_pulses, pulse_start);
-		run_until_rtc_reads(read_start + 3);
-		expect_u8("next odd second does not pulse", dot_pulses, pulse_start);
-		run_until_rtc_reads(read_start + 4);
-		expect_u8("next even second does not pulse", dot_pulses, pulse_start);
-	}
+	expect_colon_state("00 seconds colon on", 0x00, 0x30, 0x07, 1, 0, 1, 1);
+	expect_colon_state("01 seconds colon off", 0x01, 0x30, 0x07, 1, 0, 1, 0);
+	expect_colon_state("02 seconds colon on", 0x02, 0x30, 0x07, 1, 0, 1, 1);
+	expect_colon_state("03 seconds colon off", 0x03, 0x30, 0x07, 1, 0, 1, 0);
+	expect_colon_state("58 seconds colon on", 0x58, 0x30, 0x07, 1, 0, 1, 1);
+	expect_colon_state("59 seconds colon off", 0x59, 0x30, 0x07, 1, 0, 1, 0);
+	expect_colon_state("59 to 00 starts off", 0x59, 0x30, 0x07, 1, 0, 1, 0);
+	expect_colon_state("59 to 00 then on", 0x00, 0x31, 0x07, 1, 0, 1, 1);
+	expect_colon_state("schedule disabled colon off", 0x02, 0x00, 0x10, 1, 0, 0, 0);
+	expect_colon_state("gate reopen follows even second", 0x02, 0x30, 0x07, 1, 0, 1, 1);
+	expect_colon_state("menu 11 value 1 colon on", 0x03, 0x30, 0x07, 1, 1, 1, 1);
+	expect_colon_state("menu 11 value 2 colon off", 0x02, 0x30, 0x07, 1, 2, 1, 0);
 
 	if (failures) {
 		printf("FAIL iface rtc recovery tests failures=%u\n", failures);

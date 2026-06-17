@@ -1,6 +1,5 @@
 #include "STM8S003F3.h"
 #include "service_timing.h"
-#include "display.h"
 #include "ds3231.h"
 #include "keyboard.h"
 #include "keyevents.h"
@@ -36,7 +35,7 @@ void service_timing_10ms_proc (void)
 			quere10ms++;
 			
 			switch(quere10ms){
-				case 1:	displayDotPulseProc(); 	break;
+				case 1:	break;
 				case 2: iface_10ms_proc_en();		break;
 				case 3: timer20msProc(); 
 					flag10ms = 0;
