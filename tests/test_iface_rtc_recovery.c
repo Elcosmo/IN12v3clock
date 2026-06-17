@@ -182,6 +182,11 @@ void displayDot(uint8_t state)
 	last_dot_request = state;
 }
 
+void displayDotDigital(uint8_t state)
+{
+	last_dot_request = state;
+}
+
 void displayDotGateSet(uint8_t state)
 {
 	last_dot_gate = state ? 1 : 0;

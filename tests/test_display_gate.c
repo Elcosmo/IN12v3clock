@@ -54,61 +54,61 @@ static void expect_dot_off(const char *context)
 	}
 }
 
+static void expect_dot_on(const char *context)
+{
+	if (sfr_TIM2.IER.CC2IE != 0 || sfr_PORTD.ODR.ODR6 != 1) {
+		printf("FAIL %s CC2IE=%u DOT=%u\n",
+		       context,
+		       (unsigned)sfr_TIM2.IER.CC2IE,
+		       (unsigned)sfr_PORTD.ODR.ODR6);
+		failures++;
+	}
+}
+
 static uint16_t expected_scaled(uint8_t value)
 {
 	return (uint16_t)(((int32_t)value * 10000) / 255);
 }
 
-static uint16_t expected_dot_pwm(uint8_t percent)
-{
-	uint16_t value;
-
-	if (percent == 0) {
-		return 0;
-	}
-	value = (uint16_t)(((int32_t)percent * 10000) / 100);
-	if (value < DOT_MIN_BRIGHT) {
-		value = DOT_MIN_BRIGHT;
-	}
-	return value;
-}
-
-static uint16_t actual_dot_pwm(void)
-{
-	if (!sfr_TIM2.IER.CC2IE) {
-		return 0;
-	}
-	return (((uint16_t)sfr_TIM2.CCR2H.byte) << 8) | sfr_TIM2.CCR2L.byte;
-}
-
-static void expect_dot_pwm(const char *label, uint16_t expected)
-{
-	uint16_t got = actual_dot_pwm();
-
-	if (got != expected) {
-		printf("FAIL %s dot_pwm=%u expected=%u\n", label, got, expected);
-		failures++;
-	}
-}
-
 static void test_dot_output_levels(void)
 {
 	displayDotGateSet(1);
+	sfr_TIM2.IER.CC2IE = 1;
+	sfr_TIM2.SR1.CC2IF = 1;
+	displayDotDigital(1);
+	expect_dot_on("digital dot on");
+	expect_u16("digital dot clears CC2IF", sfr_TIM2.SR1.CC2IF, 0);
+
+	sfr_TIM2.SR1.CC2IF = 1;
+	TIM2_CAP_ISR();
+	expect_dot_on("digital dot remains on after CC2 ISR");
+	expect_u16("CC2 ISR clears pending flag", sfr_TIM2.SR1.CC2IF, 0);
+
+	TIM2_UPD_ISR();
+	expect_dot_on("digital dot remains on after update ISR");
+
+	displayDotDigital(0);
+	expect_dot_off("digital dot off");
+
+	sfr_TIM2.IER.CC2IE = 1;
+	sfr_TIM2.SR1.CC2IF = 1;
 	displayDot(1);
-	expect_dot_pwm("dot on is full brightness", expected_dot_pwm(100));
-	displayDot(0);
-	expect_dot_pwm("dot off is zero", 0);
+	expect_dot_on("legacy dot wrapper is digital");
+	expect_u16("legacy dot wrapper clears CC2IF", sfr_TIM2.SR1.CC2IF, 0);
 }
 
 static void test_dot_gate_closed(void)
 {
 	displayDotGateSet(0);
 	expect_dot_off("dot gate close");
-	displayDot(1);
+	sfr_TIM2.IER.CC2IE = 1;
+	sfr_TIM2.SR1.CC2IF = 1;
+	displayDotDigital(1);
 	expect_dot_off("dot request while closed");
+	expect_u16("closed gate clears CC2IF", sfr_TIM2.SR1.CC2IF, 0);
 	displayDotGateSet(1);
-	displayDot(1);
-	expect_dot_pwm("dot gate reopen accepts on", expected_dot_pwm(100));
+	displayDotDigital(1);
+	expect_dot_on("dot gate reopen accepts on");
 }
 
 static void expect_saved_config_unchanged(uint8_t colon_type,
@@ -134,19 +134,21 @@ void hc595ChainShiftOut(uint8_t *data, uint8_t lenght)
 	uint8_t k;
 
 	hc595_shift_count++;
-	if (sfr_TIM2.CR1.CEN) {
+	if ((hc595_shift_count == 1) && sfr_TIM2.CR1.CEN) {
 		fail("timer running before HC595 zero latch");
 	}
 	if (lenght != 5) {
 		printf("FAIL hc595 zero length=%u\n", (unsigned)lenght);
 		failures++;
 	}
-	hc595_zero_latched = 1;
-	for (k = 0; k < lenght; k++) {
-		if (data[k] != 0) {
-			printf("FAIL hc595 init data[%u]=0x%02X\n", (unsigned)k, (unsigned)data[k]);
-			failures++;
-			hc595_zero_latched = 0;
+	if (hc595_shift_count == 1) {
+		hc595_zero_latched = 1;
+		for (k = 0; k < lenght; k++) {
+			if (data[k] != 0) {
+				printf("FAIL hc595 init data[%u]=0x%02X\n", (unsigned)k, (unsigned)data[k]);
+				failures++;
+				hc595_zero_latched = 0;
+			}
 		}
 	}
 }
@@ -253,15 +255,13 @@ int main(void)
 	expect_u16("rgb requested state restored blue", rgb_b, expected_scaled(saved_blue));
 
 	displayDotGateSet(1);
-	displayDot(1);
-	if (sfr_TIM2.IER.CC2IE == 0) {
-		fail("dot did not enable while gate open");
-	}
+	displayDotDigital(1);
+	expect_dot_on("dot did not turn on while gate open");
 
 	displayDotGateSet(0);
 	expect_dot_off("dot gate close");
 
-	displayDot(1);
+	displayDotDigital(1);
 	expect_dot_off("dot request while closed");
 
 	displayDotGateSet(1);

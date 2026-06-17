@@ -250,23 +250,23 @@ static void iface_display(void)
 			if (!i.rtcValid) {
 				i.antipoisoningEn = 0;
 				iface_display_nixie_off();
-				displayDot(0);
+				displayDotDigital(0);
 				displayRGBGateSet(0);
 				break;
 			}
 			if (!schedule_enabled) {
-				displayDot(0);
+				displayDotDigital(0);
 			} else {
 				switch (e.colonBlinkingType) {
 					case 1:
-						displayDot(1);
+						displayDotDigital(1);
 						break;
 					case 2:
-						displayDot(0);
+						displayDotDigital(0);
 						break;
 					default:
 						/* BCD seconds preserve parity in bit 0: even = colon ON, odd = colon OFF. */
-						displayDot((i.seconds & 1U) == 0);
+						displayDotDigital((i.seconds & 1U) == 0);
 						break;
 				}
 			}
@@ -352,7 +352,7 @@ static void iface_display(void)
 				i.display[3] = NIXIE_OFF;
 			}
 			iface_display_nixie(&i.display[0],0);
-			displayDot(1);
+			displayDotDigital(1);
 			break;
 		
 		case SETUP_MINUTES:
@@ -363,7 +363,7 @@ static void iface_display(void)
 				i.display[1] = NIXIE_OFF;
 			}
 			iface_display_nixie(&i.display[0],0);
-			displayDot(1);
+			displayDotDigital(1);
 			break;
 		
 		case SETUP_R:
@@ -376,7 +376,7 @@ static void iface_display(void)
 				i.display[3] = i.display_state-11;
 			}
 			iface_display_nixie(&i.display[0],0);
-			displayDot(0);
+			displayDotDigital(0);
 			break;
 		
 		case SETUP_BRIGHT:
@@ -384,7 +384,7 @@ static void iface_display(void)
 			i.display[3] = i.display_state;
 			iface_disp3decDigit (i.setupValue, &i.display[0], &i.display[1], &i.display[2]);
 			iface_display_nixie(&i.display[0],bin(00001000));
-			displayDot(0);
+			displayDotDigital(0);
 		break;
 		
 		case SETUP_ZERO:
@@ -401,7 +401,7 @@ static void iface_display(void)
 			i.display[1] = NIXIE_OFF;
 			i.display[0] = i.setupValue;
 			iface_display_nixie(&i.display[0],0);
-			displayDot(0);
+			displayDotDigital(0);
 			break;
 		
 		case SETUP_COLON_BLINKING_TYPE:
@@ -414,7 +414,7 @@ static void iface_display(void)
 			i.display[1] = NIXIE_OFF;
 			i.display[0] = i.setupValue;
 			iface_display_nixie(&i.display[0],0);
-			displayDot(0);
+			displayDotDigital(0);
 			break;
 
 		case SETUP_WEEKDAY:
@@ -422,7 +422,7 @@ static void iface_display(void)
 			i.display[1] = NIXIE_OFF;
 			i.display[0] = i.setupValue;
 			iface_display_nixie(&i.display[0],0);
-			displayDot(0);
+			displayDotDigital(0);
 			break;
 		
 		case SETUP_NIGHT_BR_START_H:
@@ -433,7 +433,7 @@ static void iface_display(void)
 			i.display[2] = NIXIE_OFF;
 			i.display[3] = i.display_state;
 			iface_display_nixie(&i.display[0],0);
-			displayDot(0);
+			displayDotDigital(0);
 			break;
 		
 		default:

@@ -52,19 +52,16 @@ void displayInit ( void )
 	
 	sfr_TIM2.CCR1H.byte = hibyte(1000);		// set PWM channel 1 duty period
 	sfr_TIM2.CCR1L.byte = lobyte(1000);
-	sfr_TIM2.CCR2H.byte = hibyte(0);			// set PWM channel 2 duty period
-	sfr_TIM2.CCR2L.byte = lobyte(0);
 	
 	sfr_TIM2.CCMR1.OC1PE 	= 1;						// buffer compare register to avoid glitches when changing duty cycle
 	sfr_TIM2.CCER1.CC1E 	= 0;						// TIM2 channel 1 output disable
 	sfr_TIM2.CCER1.CC2E 	= 0;						// TIM2 channel 2 output disable
 	sfr_TIM2.IER.CC1IE 		= 1;						// TIM2 channel 1 compare interrupt enable
-	//sfr_TIM2.IER.CC2IE 		= 1;						// TIM2 channel 2 compare interrupt enable
 	sfr_TIM2.IER.UIE 			= 1;						// TIM2 update interrupt enable
 	sfr_TIM2.CR1.CEN     	= 1;						// start TIM2
 
 	displaySetBright(100);
-	displayDot(0);
+	displayDotDigital(0);
 	hc595OutputEnable();
 	
 	
@@ -256,39 +253,30 @@ void displayNixie(uint8_t *data, uint8_t full_bright_bitmask)
 	memcpy(zero_data,displayNixieBuffPrepare(data,full_bright_bitmask),sizeof(zero_data));
 }
 
-void displayDot (uint8_t state) 
+void displayDotDigital(uint8_t state)
 {
-	uint16_t bright = displayBright;
-	
+	sfr_TIM2.IER.CC2IE = 0;							// TIM2 channel 2 compare interrupt disable
+	sfr_TIM2.SR1.CC2IF = 0;							// clear any pending dot compare flag
 	if (!displayDotGate) {state = 0;}
-	if (state == 0) {
-		sfr_TIM2.IER.CC2IE 		= 0;							// TIM2 channel 2 compare interrupt disable
-		DOT_PIN = 0;
-	}else {
-		if (bright < DOT_MIN_BRIGHT) {
-			bright = DOT_MIN_BRIGHT;
-		}
-		sfr_TIM2.CCR2H.byte = hibyte(bright);		// set PWM channel 2 duty period
-		sfr_TIM2.CCR2L.byte = lobyte(bright);
-		sfr_TIM2.IER.CC2IE 		= 1;							// TIM2 channel 2 compare interrupt enable
-	}
+	DOT_PIN = state ? 1 : 0;
+}
+
+void displayDot (uint8_t state)
+{
+	displayDotDigital(state);
 }
 
 void displayDotGateSet (uint8_t state)
 {
 	displayDotGate = state;
 	if (!displayDotGate) {
-		displayDot(0);
+		displayDotDigital(0);
 	}
 }
 
 ISR_HANDLER (TIM2_UPD_ISR, _TIM2_OVR_UIF_VECTOR_)
 {
 	hc595ChainShiftOut(disp_data,sizeof(disp_data));
-	if (sfr_TIM2.IER.CC2IE)
-	{
-		DOT_PIN = 1;
-	}
 	flag10ms = 1;
 	sfr_TIM2.SR1.UIF = 0;
   return;
@@ -306,7 +294,6 @@ ISR_HANDLER (TIM2_CAP_ISR, _TIM2_CAPCOM_CC1IF_VECTOR_)
 	//для точки
 	if(sfr_TIM2.SR1.CC2IF)
 	{
-		DOT_PIN = 0;
 		sfr_TIM2.SR1.CC2IF = 0;
 	}
   return;
