@@ -8,16 +8,23 @@
 
 static volatile	uint8_t zero_data[5] 							= {0,0,0,0,0};
 static volatile uint8_t disp_data[5]							= {0,0,0,0,0};
-static 					uint8_t dotPulseCounter;
+static 					uint8_t dotPulsePhase;
+static 					uint8_t dotPulseDivider;
 			 volatile uint8_t flag10ms;
 static 					uint16_t displayBright;
 static 					uint8_t displayDotGate = 1;
 static 					uint8_t displayRgbState;
 static 					uint8_t displayRgbGate;
 
-#define DOT_PULSE_PEAK_STEP		32U
-#define DOT_PULSE_LAST_STEP		64U
-#define DOT_PULSE_BRIGHT_STEP	3U
+#define DOT_PULSE_LUT_SIZE		24U
+#define DOT_PULSE_PHASES			(DOT_PULSE_LUT_SIZE * 2U)
+#define DOT_PULSE_DIVIDER			2U
+
+static const uint8_t dotPulseLut[DOT_PULSE_LUT_SIZE] = {
+	24, 24, 25, 27, 29, 32, 35, 39,
+	43, 48, 53, 58, 62, 67, 72, 77,
+	81, 85, 88, 91, 93, 95, 96, 96
+};
 
 static uint8_t *displayNixieBuffPrepare(uint8_t *inbuff, uint8_t dmask);
 static void displaySetDotBright( uint8_t bright);
@@ -284,37 +291,40 @@ void displayDotGateSet (uint8_t state)
 {
 	displayDotGate = state;
 	if (!displayDotGate) {
+		dotPulsePhase = 0;
+		dotPulseDivider = 0;
 		displaySetDotBright(0);
 	}
 }
 
-void displayDotPulse (void) 
-{
-	dotPulseCounter = 0;
-}
-
 void displayDotPulseProc (void)
 {
+	uint8_t phase;
+
 	switch (e.colonBlinkingType) {
 		case 1:
-			if (dotPulseCounter < 50) { 
-				displaySetDotBright(50 * 4);
-				dotPulseCounter++;
-			}
+			displaySetDotBright(50 * 4);
 			break;
 		case 2:
 			displaySetDotBright(0);
 			break;
 		default:
-			if (dotPulseCounter <= DOT_PULSE_PEAK_STEP) {
-				displaySetDotBright(dotPulseCounter * DOT_PULSE_BRIGHT_STEP);
-			} else if (dotPulseCounter <= DOT_PULSE_LAST_STEP) {
-				displaySetDotBright((DOT_PULSE_LAST_STEP - dotPulseCounter) * DOT_PULSE_BRIGHT_STEP);
-			} else {
+			if (!displayDotGate) {
+				dotPulsePhase = 0;
+				dotPulseDivider = 0;
 				displaySetDotBright(0);
+				break;
 			}
-			if (dotPulseCounter <= DOT_PULSE_LAST_STEP) {
-				dotPulseCounter++;
+			phase = dotPulsePhase;
+			if (phase >= DOT_PULSE_LUT_SIZE) {
+				phase = (DOT_PULSE_PHASES - 1U) - phase;
+			}
+			displaySetDotBright(dotPulseLut[phase]);
+			if (++dotPulseDivider >= DOT_PULSE_DIVIDER) {
+				dotPulseDivider = 0;
+				if (++dotPulsePhase >= DOT_PULSE_PHASES) {
+					dotPulsePhase = 0;
+				}
 			}
 			break;
 	}

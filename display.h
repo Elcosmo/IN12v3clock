@@ -19,7 +19,6 @@ void displaySetBright(uint8_t bright);
 void displayNixie(uint8_t *data, uint8_t full_bright_bitmask);
 void displayDot (uint8_t state);
 void displayDotGateSet (uint8_t state);
-void displayDotPulse (void);
 void displayDotPulseProc (void);
 
 void displayRGBset (uint8_t state);

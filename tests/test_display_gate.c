@@ -23,9 +23,17 @@ static uint8_t hc595_zero_latched;
 static unsigned failures;
 
 #define DOT_CALL_MS 30
-#define DOT_PULSE_PEAK_STEP 32U
-#define DOT_PULSE_LAST_STEP 64U
-#define DOT_PULSE_BRIGHT_STEP 3U
+#define DOT_PULSE_LUT_SIZE 24U
+#define DOT_PULSE_PHASES (DOT_PULSE_LUT_SIZE * 2U)
+#define DOT_PULSE_DIVIDER 2U
+#define DOT_PULSE_CYCLE_MS (DOT_PULSE_PHASES * DOT_PULSE_DIVIDER * DOT_CALL_MS)
+#define DOT_PULSE_MAX_STEP_PERCENT 6U
+
+static const uint8_t dot_pulse_lut[DOT_PULSE_LUT_SIZE] = {
+	24, 24, 25, 27, 29, 32, 35, 39,
+	43, 48, 53, 58, 62, 67, 72, 77,
+	81, 85, 88, 91, 93, 95, 96, 96
+};
 
 static void fail(const char *message)
 {
@@ -86,15 +94,12 @@ static uint16_t actual_dot_pwm(void)
 	return (((uint16_t)sfr_TIM2.CCR2H.byte) << 8) | sfr_TIM2.CCR2L.byte;
 }
 
-static uint8_t expected_default_dot_percent(uint8_t step)
+static uint8_t expected_default_dot_percent(uint8_t phase)
 {
-	if (step <= DOT_PULSE_PEAK_STEP) {
-		return step * DOT_PULSE_BRIGHT_STEP;
+	if (phase >= DOT_PULSE_LUT_SIZE) {
+		phase = (DOT_PULSE_PHASES - 1U) - phase;
 	}
-	if (step <= DOT_PULSE_LAST_STEP) {
-		return (DOT_PULSE_LAST_STEP - step) * DOT_PULSE_BRIGHT_STEP;
-	}
-	return 0;
+	return dot_pulse_lut[phase];
 }
 
 static void expect_dot_pwm(const char *label, uint16_t expected)
@@ -109,46 +114,62 @@ static void expect_dot_pwm(const char *label, uint16_t expected)
 
 static void test_default_dot_pulse_cycle(void)
 {
-	uint8_t pulse;
 	uint8_t step;
-	uint16_t pwm[DOT_PULSE_LAST_STEP + 3U];
+	uint8_t repeat;
+	uint16_t pwm[DOT_PULSE_PHASES + 1U];
+	uint16_t prev_pwm = 0;
+	uint8_t have_prev = 0;
 
 	e.colonBlinkingType = 0;
+	displayDotGateSet(0);
 	displayDotGateSet(1);
 
-	for (pulse = 0; pulse < 3; pulse++) {
-		displayDotPulse();
-		for (step = 0; step < sizeof(pwm) / sizeof(pwm[0]); step++) {
-			displayDotPulseProc();
-			pwm[step] = actual_dot_pwm();
-			expect_dot_pwm("default dot pulse",
-				       expected_dot_pwm(expected_default_dot_percent(step)));
-		}
-		for (step = 1; step <= DOT_PULSE_PEAK_STEP; step++) {
-			if (pwm[step] <= pwm[step - 1]) {
-				fail("default dot pulse rise is not progressive");
-			}
-		}
-		for (step = DOT_PULSE_PEAK_STEP + 1; step <= DOT_PULSE_LAST_STEP; step++) {
-			if (pwm[step] >= pwm[step - 1]) {
-				fail("default dot pulse fall is not progressive");
-			}
-		}
-		if (pwm[DOT_PULSE_LAST_STEP] != 0) {
-			fail("default dot pulse does not end at zero");
-		}
-		if (pwm[DOT_PULSE_LAST_STEP + 1] != 0 || pwm[DOT_PULSE_LAST_STEP + 2] != 0) {
-			fail("default dot pulse reignites after cycle end");
-		}
-		if ((DOT_PULSE_LAST_STEP * DOT_CALL_MS) >= 2000) {
-			fail("default dot pulse zero is not reached within two seconds");
-		}
+	for (step = 0; step < DOT_PULSE_PHASES; step++) {
+		for (repeat = 0; repeat < DOT_PULSE_DIVIDER; repeat++) {
+			uint16_t got;
+			uint16_t expected;
+			uint16_t diff;
 
-		displayDotPulse();
-		displayDotPulseProc();
-		if (actual_dot_pwm() != 0) {
-			fail("new second starts with visible dot jump");
+			displayDotPulseProc();
+			got = actual_dot_pwm();
+			expected = expected_dot_pwm(expected_default_dot_percent(step));
+			expect_dot_pwm("default dot pulse", expected);
+			if (got == 0) {
+				fail("default dot pulse reached zero while gate is open");
+			}
+			if (have_prev) {
+				diff = (got > prev_pwm) ? (got - prev_pwm) : (prev_pwm - got);
+				if (diff > expected_dot_pwm(DOT_PULSE_MAX_STEP_PERCENT)) {
+					fail("default dot pulse step jump is too large");
+				}
+			}
+			prev_pwm = got;
+			have_prev = 1;
 		}
+		pwm[step] = actual_dot_pwm();
+	}
+	displayDotPulseProc();
+	pwm[DOT_PULSE_PHASES] = actual_dot_pwm();
+
+	for (step = 1; step < DOT_PULSE_LUT_SIZE; step++) {
+		if (pwm[step] < pwm[step - 1]) {
+			fail("default dot pulse rise is not monotone");
+		}
+	}
+	for (step = DOT_PULSE_LUT_SIZE + 1U; step < DOT_PULSE_PHASES; step++) {
+		if (pwm[step] > pwm[step - 1]) {
+			fail("default dot pulse fall is not monotone");
+		}
+	}
+	if ((pwm[0] != pwm[DOT_PULSE_PHASES - 1U]) ||
+	    (pwm[0] != pwm[DOT_PULSE_PHASES])) {
+		fail("default dot pulse cycle is not continuous at wrap");
+	}
+	if (pwm[0] <= DOT_MIN_BRIGHT) {
+		fail("default dot pulse minimum is not above clamp threshold");
+	}
+	if ((DOT_PULSE_CYCLE_MS < 2700U) || (DOT_PULSE_CYCLE_MS > 3100U)) {
+		fail("default dot pulse cycle duration is outside range");
 	}
 }
 
@@ -158,14 +179,12 @@ static void test_dot_modes_unchanged(void)
 
 	displayDotGateSet(1);
 	e.colonBlinkingType = 1;
-	displayDotPulse();
 	for (step = 0; step < 60; step++) {
 		displayDotPulseProc();
 		expect_dot_pwm("colon always on", expected_dot_pwm(200));
 	}
 
 	e.colonBlinkingType = 2;
-	displayDotPulse();
 	for (step = 0; step < 60; step++) {
 		displayDotPulseProc();
 		expect_dot_pwm("colon always off", 0);
@@ -178,17 +197,20 @@ static void test_dot_gate_closed(void)
 
 	displayDotGateSet(0);
 	e.colonBlinkingType = 0;
-	displayDotPulse();
 	for (step = 0; step < 40; step++) {
 		displayDotPulseProc();
 		expect_dot_pwm("closed dot gate default", 0);
 	}
 	e.colonBlinkingType = 1;
-	displayDotPulse();
 	for (step = 0; step < 40; step++) {
 		displayDotPulseProc();
 		expect_dot_pwm("closed dot gate always on", 0);
 	}
+	displayDotGateSet(1);
+	e.colonBlinkingType = 0;
+	displayDotPulseProc();
+	expect_dot_pwm("dot gate reopen starts at minimum",
+		       expected_dot_pwm(expected_default_dot_percent(0)));
 }
 
 static void expect_saved_config_unchanged(uint8_t colon_type,
@@ -344,7 +366,6 @@ int main(void)
 	displayDot(1);
 	expect_dot_off("dot request while closed");
 
-	displayDotPulse();
 	displayDotPulseProc();
 	expect_dot_off("dot pulse while closed");
 

@@ -125,17 +125,8 @@ void iface_10ms_proc_en (void)
 
 static void timer50msProc(void)
 {
-	static uint8_t secondsLast;
-	
 	if (i.display_state == SETUP_NO){
 		i.rtcValid = ds3231_read_time(&i.seconds,&i.minutes,&i.hours,&i.weekday);
-		if (i.rtcValid && (i.seconds != secondsLast)){
-			secondsLast = i.seconds;
-			/* DS3231 seconds are valid BCD, and bit 0 still matches decimal parity. */
-			if ((i.seconds & 1U) == 0) {
-				displayDotPulse();
-			}
-		}
 	}
 }
 

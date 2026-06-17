@@ -296,7 +296,7 @@ int main(void)
 	display_nixie_calls = 0;
 	run_display_period();
 	expect_u8("rtc recovered", i.rtcValid, 1);
-	expect_u8("dot pulse after valid read", dot_pulses > 0, 1);
+	expect_u8("rtc reads do not pulse colon", dot_pulses, 0);
 	expect_u8("normal display called after recovery", display_nixie_calls > 0, 1);
 	expect_nixie_digits("normal display recovered", 1, 3, 7, NIXIE_OFF);
 	expect_u8("rgb desired restored after recovery", last_rgb_state, 1);
@@ -316,11 +316,11 @@ int main(void)
 		run_until_rtc_reads(read_start + 1);
 		expect_u8("odd second does not pulse", dot_pulses, pulse_start);
 		run_until_rtc_reads(read_start + 2);
-		expect_u8("even second pulses", dot_pulses, pulse_start + 1);
+		expect_u8("even second does not pulse", dot_pulses, pulse_start);
 		run_until_rtc_reads(read_start + 3);
-		expect_u8("next odd second does not pulse", dot_pulses, pulse_start + 1);
+		expect_u8("next odd second does not pulse", dot_pulses, pulse_start);
 		run_until_rtc_reads(read_start + 4);
-		expect_u8("next even second pulses", dot_pulses, pulse_start + 2);
+		expect_u8("next even second does not pulse", dot_pulses, pulse_start);
 	}
 
 	if (failures) {
