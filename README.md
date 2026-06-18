@@ -3,14 +3,15 @@
 Firmware alternativo per la scheda Nixie GeekStyles IN12 V3, nota anche come
 JM NixieClock IN12 V4.2.
 
-Questa variante e' destinata alla scheda reale con:
+## Hardware testato
 
-- serigrafia frontale: `GeekStyles IN12 V3`;
-- serigrafia posteriore: `JM NixieClock IN12 V4.2 20190514`;
+RC9 e' stato preparato e documentato per la seguente configurazione reale:
+
+- scheda `GeekStyles IN12 V3` / `JM NixieClock IN12 V4.2 20190514`;
 - MCU `STM8S003F3P6`;
 - RTC `DS3231`;
 - tubi `IN-12`;
-- catena di shift register 74HC595 e driver 2003A/ULN2003A;
+- programmatore `ST-Link V2`;
 - batteria tampone RTC `CR1220`.
 
 Foto della scheda:
@@ -27,6 +28,7 @@ specifiche per l'uso quotidiano della scheda:
 - lettura e impostazione manuale del weekday DS3231;
 - convenzione weekday: `1=lunedi`, `2=martedi`, ..., `7=domenica`;
 - schedule feriale/weekend configurabile da menu;
+- rimozione della vecchia modalita' notte;
 - spegnimento programmato di Nixie, RGB e colon;
 - safe boot della catena HC595, con uscite spente prima dell'abilitazione;
 - colon digitale stabile, senza PWM: 1 secondo acceso / 1 secondo spento;
@@ -55,6 +57,8 @@ Default sabato-domenica:
 I menu `3..10` permettono di cambiare solo l'ora intera di inizio/fine di ogni
 fascia. Le regole sono:
 
+- start incluso;
+- end escluso;
 - `start < end`: fascia nella stessa giornata;
 - `start > end`: fascia che attraversa la mezzanotte;
 - `start == end`: fascia disabilitata;
@@ -74,7 +78,7 @@ Fuori fascia, durante il normale funzionamento:
 I menu restano utilizzabili anche fuori fascia: i Nixie possono essere mostrati
 per configurare la scheda, mentre RGB e colon restano spenti dal gate.
 
-## Comandi e menu
+## Comandi e menu RC9
 
 Tasti:
 
@@ -95,7 +99,7 @@ Impostazione ora:
 - `K2` passa da ore a minuti e poi salva;
 - al salvataggio i secondi vengono scritti a `00` nel DS3231.
 
-Menu impostazioni:
+Menu impostazioni RC9:
 
 | Menu | Funzione | Valori |
 |------|----------|--------|
@@ -117,25 +121,25 @@ Nei menu `3..10`, `K1` incrementa con wrap `23 -> 0`; `K2` salva il byte EEPROM
 corrispondente e passa alla voce successiva. Il menu 12 scrive solo il registro
 weekday del DS3231 e non usa EEPROM.
 
-## EEPROM e migrazione
+## EEPROM e migrazione RC9
 
 Il vecchio firmware usava gli indirizzi EEPROM `3..10` per modalita' notte:
 luminosita' notte, enable notte, intervallo notte, RGB notte e anti-poisoning
 solo notte.
 
-Questa variante riusa gli stessi 8 byte per lo schedule:
+RC9 riusa gli stessi 8 byte per lo schedule:
 
-| EEPROM | Nuovo significato | Default |
-|--------|-------------------|---------|
-| 3 | Feriale fascia 1 inizio | `07` |
-| 4 | Feriale fascia 1 fine | `09` |
-| 5 | Feriale fascia 2 inizio | `17` |
-| 6 | Feriale fascia 2 fine | `00` |
-| 7 | Weekend fascia 1 inizio | `07` |
-| 8 | Weekend fascia 1 fine | `12` |
-| 9 | Weekend fascia 2 inizio | `19` |
-| 10 | Weekend fascia 2 fine | `01` |
-| 17 | Versione configurazione | `1` |
+| EEPROM logico | Indirizzo fisico | Nuovo significato | Default |
+|---------------|------------------|-------------------|---------|
+| 3 | `0x4003` | Feriale fascia 1 inizio | `07` |
+| 4 | `0x4004` | Feriale fascia 1 fine | `09` |
+| 5 | `0x4005` | Feriale fascia 2 inizio | `17` |
+| 6 | `0x4006` | Feriale fascia 2 fine | `00` |
+| 7 | `0x4007` | Weekend fascia 1 inizio | `07` |
+| 8 | `0x4008` | Weekend fascia 1 fine | `12` |
+| 9 | `0x4009` | Weekend fascia 2 inizio | `19` |
+| 10 | `0x400A` | Weekend fascia 2 fine | `01` |
+| 17 | `0x4011` | Versione configurazione schedule | `01` |
 
 Al primo avvio con vecchio formato, il firmware inizializza solo questi 8 orari
 ai default e scrive il byte versione. Luminosita' normale, RGB globale, colori,
@@ -143,6 +147,9 @@ colon e altre impostazioni non collegate allo schedule restano conservati. Se in
 un avvio successivo uno degli 8 orari e' maggiore di `23`, tutti gli 8 orari
 vengono ripristinati ai default. Il byte versione evita scritture ripetute a
 ogni boot.
+
+`0x4011 = 01` significa che la migrazione schedule RC9 e' completata. Non serve
+programmare Data Memory: il byte viene scritto dal firmware al primo boot valido.
 
 ## Configurazione consigliata
 
@@ -173,6 +180,10 @@ L'anti-avvelenamento esegue una rotazione controllata dei catodi dei Nixie.
 La CR1220 alimenta il DS3231 quando la scheda e' scollegata. Se e' scarica o
 assente, ora e weekday possono andare persi. In caso di ora corrotta, il firmware
 non mostra valori RTC invalidi: usare i menu per reimpostare ora e weekday.
+
+Per RC9, sulla scheda testata e' risultata empiricamente necessaria la rimozione
+temporanea della CR1220 durante la programmazione e il primo avvio di migrazione.
+La procedura consigliata sotto documenta questo comportamento osservato.
 
 ## Build Docker / SDCC
 
@@ -222,20 +233,18 @@ Il workflow `.github/workflows/firmware-ci.yml` gira su push e pull request vers
 `master`, clona i submodule, esegue `scripts/ci.ps1` e carica `main.s19`,
 `main.ihx` e `main.map` come artifact.
 
-## Collegamento ST-Link
+## Collegamento ST-Link V2
 
-Connettore debug della scheda:
+Collegamenti usati sulla scheda testata:
 
-| Pin | Segnale | Descrizione |
-|-----|---------|-------------|
-| 1 | 3.3V | alimentazione/riferimento |
-| 2 | SWIM | interfaccia programmazione |
-| 3 | NRST | reset |
-| 4 | GND | massa |
+| ST-Link V2 | Scheda |
+|------------|--------|
+| SWIM | SWIM |
+| NRST | RST |
+| GND | GND |
 
-Collegare almeno `SWIM`, `NRST` e `GND`; usare 3.3 V solo se l'alimentazione
-della scheda e del programmatore lo richiede ed e' sicura. Non applicare 5 V alla
-logica STM8.
+Non collegare `3,3 V` o `5 V` dallo ST-Link. La scheda deve essere alimentata
+dalla propria USB durante la programmazione.
 
 Pin STM8 rilevanti:
 
@@ -248,21 +257,53 @@ Pin STM8 rilevanti:
 
 ![SWD pinout](Photo/swd_pinout.jpg)
 
-## Programmazione
+## Programmazione RC9
 
 Per aggiornare una scheda gia' configurata con RC recenti, programmare soltanto
-la Program Memory con `main.s19`.
+la Program Memory con `main.s19`. Non programmare Data Memory e non programmare
+Option Byte durante aggiornamenti ordinari.
 
-Non programmare Data EEPROM e Option Byte durante aggiornamenti ordinari:
+Procedura consigliata sulla scheda testata:
 
-- la EEPROM contiene le impostazioni salvate;
-- gli Option Byte includono configurazioni hardware delicate;
-- ROP puo' impedire il readback/backup del firmware originale;
-- AFR0 deve restare coerente con la scheda per non rompere le funzioni dei pin
-  usati dalla catena di controllo.
+1. Spegnere la scheda.
+2. Rimuovere temporaneamente la CR1220.
+3. Collegare ST-Link: `SWIM -> SWIM`, `NRST -> RST`, `GND -> GND`.
+4. Alimentare la scheda dalla propria USB.
+5. Caricare il file S19 e programmare solo `PROGRAM MEMORY`.
+6. Usare `Program -> Current tab`.
+7. Impostare `Verify after programming = ON`.
+8. Non usare `All tabs`, `Fill area`, Data Memory o Option Byte.
+9. Spegnere, scollegare ST-Link e fare il primo avvio senza ST-Link e senza batteria.
+10. Attendere 20-30 secondi per la migrazione EEPROM.
+11. Verificare i menu `3..10`.
+12. Spegnere e reinserire la CR1220.
+
+`File Checksum` e `Device Checksum` possono differire. Non e' automaticamente un
+errore: conta soprattutto il messaggio `PROGRAM MEMORY successfully verified`.
+
+Option Byte corretti osservati sulla scheda testata:
+
+```text
+00 00 01 00 00 00
+```
+
+Durante aggiornamenti normali non vanno riprogrammati. Gli Option Byte includono
+configurazioni hardware delicate: ROP puo' impedire readback/backup del firmware
+originale e AFR0 deve restare coerente con la scheda.
 
 Prima di ogni flash, tentare un backup del firmware originale. Se ROP e' attivo,
 il backup puo' non essere possibile senza cancellare il dispositivo.
+
+## Troubleshooting RC9
+
+- Menu `3` mostra ancora la vecchia luminosita' notte: RC9 non e' stato avviato
+  correttamente o la migrazione non e' stata eseguita.
+- `0x4011 = 00`: migrazione schedule non completata.
+- Checksum file/device diversi non indicano da soli un errore.
+- Non usare `Fill area`.
+- Non programmare Data Memory per forzare la migrazione: non serve.
+- In caso di problemi, rimuovere la batteria, riprogrammare solo Program Memory e
+  fare un boot autonomo senza ST-Link e senza CR1220, poi attendere 20-30 secondi.
 
 ## Licenza
 
