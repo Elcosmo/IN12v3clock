@@ -9,25 +9,25 @@ enum setup_states{
 	SETUP_ZERO,
 	SETUP_F1224,
 	SETUP_BRIGHT,
-	SETUP_NIGHT_BR,
-	SETUP_NIGHT_BR_EN,
-	SETUP_NIGHT_BR_START_H,
-	SETUP_NIGHT_BR_START_M,
-	SETUP_NIGHT_BR_END_H,
-	SETUP_NIGHT_BR_END_M,
-	SETUP_NIGHT_RGB_EN,
-	SETUP_ANTIPOISONING_AT_NIGHT_ONLY,
+	SETUP_WEEKDAY1_START,
+	SETUP_WEEKDAY1_END,
+	SETUP_WEEKDAY2_START,
+	SETUP_WEEKDAY2_END,
+	SETUP_WEEKEND1_START,
+	SETUP_WEEKEND1_END,
+	SETUP_WEEKEND2_START,
+	SETUP_WEEKEND2_END,
 	SETUP_COLON_BLINKING_TYPE,
+	SETUP_WEEKDAY,
 	SETUP_R,
 	SETUP_G,
 	SETUP_B,
 	SETUP_HOURS,
 	SETUP_MINUTES,
-	SETUP_WEEKDAY,
 	SETUP_NO = 255
 };
 
-typedef struct  
+typedef struct
 {
 	uint16_t 	timeSetupCounter;
 	uint8_t		display[4];
@@ -62,8 +62,6 @@ void iface_10ms_proc_en (void);
 void iface_flag05sReset(void);
 uint8_t bcd_to_decimal(uint8_t bcd);
 uint8_t decimal_to_bcd(uint8_t decimal);
-uint16_t time_to_minutes(uint8_t hour, uint8_t minute);
-uint8_t is_time_in_interval(uint16_t current_minutes, uint16_t start_minutes, uint16_t end_minutes);
 void iface_start_antipoisoning(void);
 void RGBtoggle ( void );
 

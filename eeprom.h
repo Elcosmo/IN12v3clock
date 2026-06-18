@@ -1,6 +1,8 @@
 #ifndef _EEPROM_H_
 #define	_EEPROM_H_
 
+#include "schedule.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -9,20 +11,25 @@ enum eeprom_adreses{
 	ZERO_ADDR,
 	F1224_ADDR,
 	BRIGHT_ADDR,
-	NIGHT_BR_ADDR,
-	NIGHT_BR_EN_ADDR,
-	NIGHT_BR_START_H_ADDR,
-	NIGHT_BR_START_M_ADDR,
-	NIGHT_BR_STOP_H_ADDR,
-	NIGHT_BR_STOP_M_ADDR,
-	NIGHT_RGB_EN_ADDR,
-	ANTIPOISONING_AT_NIGHT_ONLY_ADDR,
+	SCHEDULE_WEEKDAY1_START_ADDR,
+	SCHEDULE_WEEKDAY1_END_ADDR,
+	SCHEDULE_WEEKDAY2_START_ADDR,
+	SCHEDULE_WEEKDAY2_END_ADDR,
+	SCHEDULE_WEEKEND1_START_ADDR,
+	SCHEDULE_WEEKEND1_END_ADDR,
+	SCHEDULE_WEEKEND2_START_ADDR,
+	SCHEDULE_WEEKEND2_END_ADDR,
 	R_ADDR,
 	G_ADDR,
 	B_ADDR,
 	ANTIPOISONING_EFFECT_ADDR,
 	RGB_EN_ADDR,
-	COLON_BLINKING_TYPE
+	COLON_BLINKING_TYPE,
+	CONFIG_VERSION_ADDR
+};
+
+enum eeprom_constants{
+	EEPROM_CONFIG_VERSION = 1
 };
 
 
@@ -30,14 +37,7 @@ typedef struct {
 	uint8_t		zeroEn;
 	uint8_t		f1224;
 	uint8_t		bright;
-	uint8_t		nBright;
-	uint8_t		nBrightEn;
-	uint8_t		nBrightStartH;
-	uint8_t		nBrightStartM;
-	uint8_t		nBrightEndH;
-	uint8_t		nBrightEndM;
-	uint8_t		rgbAtNightEn;
-	uint8_t		antipoisoningAtNihgtOnly;
+	ScheduleConfig	schedule;
 	uint8_t 	rgbGlobalEn;
 	uint8_t		antipoisoningEffect;
 	uint8_t		colonBlinkingType;

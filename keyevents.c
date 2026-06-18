@@ -25,6 +25,16 @@ void fastReleaseKey1(void);
 Keyivents ki;
 extern Iface i;
 
+static uint8_t setup_is_schedule(uint8_t state)
+{
+	return ((state >= SETUP_WEEKDAY1_START)&&(state <= SETUP_WEEKEND2_END));
+}
+
+static uint8_t *setup_schedule_ptr(uint8_t state)
+{
+	return ((uint8_t *)&e.schedule) + (state - SETUP_WEEKDAY1_START);
+}
+
 void keyevents_init ( void )
 {
 
@@ -42,7 +52,7 @@ void keyevents_proc ( void )
 		{
 			bitmaskset(ki.bf,S1_M);
 			if (ki.bf == S1_M){
-				if (i.display_state != SETUP_NO){ 
+				if (i.display_state != SETUP_NO){
 					event_single_key1();
 				}
 			}
@@ -83,7 +93,7 @@ void keyevents_proc ( void )
 void keyevents_counters ( void )
 {
 	uint8_t t;
-	
+
 	//The counters count the time the button is pressed, tick 1/10s.
 	for(t=0; t<sizeof(ki.lp_counter); t++){
 		if (bitchk(ki.bf,t)){
@@ -100,7 +110,7 @@ void keyevents_counters ( void )
 			i.display_state = SETUP_NO;
 		}
 	}
-	
+
 	longpress_key1();
 	longpress_key2();
 	longpress_key1_2();
@@ -124,44 +134,41 @@ void event_single_key1(void)
 				if (i.hoursSetupValue > 0x23) 			{i.hoursSetupValue = 0;}
 			}
 			break;
-		
+
 		case SETUP_MINUTES:
 			iface_flag05sReset();
 			++i.minutesSetupValue;
 			if ((i.minutesSetupValue&0x0F) > 0x09){i.minutesSetupValue +=0x06;}
 			if (i.minutesSetupValue > 0x59) 			{i.minutesSetupValue = 0;}
 			break;
-		
+
 		case SETUP_R:
 			++i.setupValue;
 			displayRset(i.setupValue);
 			break;
-		
+
 		case SETUP_G:
 			++i.setupValue;
 			displayGset(i.setupValue);
 			break;
-		
+
 		case SETUP_B:
 			++i.setupValue;
 			displayBset(i.setupValue);
 			break;
-			
+
 		case	SETUP_F1224:
 			i.setupValue = 0;	//todo disable, 12h time display is not working yet!
 			break;
-			
+
 		case	SETUP_ZERO:
-		case  SETUP_NIGHT_BR_EN:
-		case	SETUP_NIGHT_RGB_EN:
-		case  SETUP_ANTIPOISONING_AT_NIGHT_ONLY:
 			if (i.setupValue){
 				i.setupValue = 0;
 			}else{
 				i.setupValue = 1;
 			}
 			break;
-		
+
 		case SETUP_COLON_BLINKING_TYPE:
 			i.setupValue++;
 			if (i.setupValue > 2){
@@ -177,7 +184,6 @@ void event_single_key1(void)
 			break;
 
 		case SETUP_BRIGHT:
-		case SETUP_NIGHT_BR:
 			if(i.setupValue) {
 				i.setupValue--;
 				if (i.setupValue < 5){
@@ -186,24 +192,12 @@ void event_single_key1(void)
 			}
 			displaySetBright(i.setupValue);
 			break;
-		
-		case SETUP_NIGHT_BR_START_H:
-		case SETUP_NIGHT_BR_END_H:
-			++i.setupValue;
-			if(e.f1224){
-				if (i.setupValue > 12)			{i.setupValue=0;}
-			}else{
-				if (i.setupValue > 23)			{i.setupValue=0;}
-			}
-			break;
-		
-		case SETUP_NIGHT_BR_START_M:
-		case SETUP_NIGHT_BR_END_M:
-			++i.setupValue;
-			if (i.setupValue > 59) 				{i.setupValue = 0;}
-			break;
-		
+
 		default:
+			if (setup_is_schedule(i.display_state)){
+				++i.setupValue;
+				if (i.setupValue > 23) {i.setupValue = 0;}
+			}
 			break;
 	}
 	if (i.display_state!=SETUP_NO){
@@ -215,43 +209,43 @@ void event_single_key1(void)
 void event_single_key2(void)
 {
 	uint8_t seconds = 0;
-	
+
 	switch (i.display_state){
 		case SETUP_HOURS:
 			i.display_state = SETUP_MINUTES;
 			break;
-			
+
 		case SETUP_MINUTES:
 			ds3231_write_time(&seconds,&i.minutesSetupValue,&i.hoursSetupValue);
 			i.display_state = SETUP_NO;
 			bitmaskclr(ki.bf,S2_M);	//disable fast release key2 to prevent toggle RGB
 			break;
-		
+
 		case SETUP_R:
 			i.display_state++;
 			EEPROM_writeByte(R_ADDR,i.setupValue);
 			i.setupValue = EEPROM_readByte(G_ADDR);
 			break;
-		
+
 		case SETUP_G:
 			i.display_state++;
 			EEPROM_writeByte(G_ADDR,i.setupValue);
 			i.setupValue = EEPROM_readByte(B_ADDR);
 			break;
-		
+
 		case SETUP_B:
 			i.display_state = SETUP_NO;
 			EEPROM_writeByte(B_ADDR,i.setupValue);
 			bitmaskclr(ki.bf,S2_M);	//disable fast release key2 to prevent toggle RGB
 			break;
-		
+
 		case SETUP_ZERO:
 			e.zeroEn = i.setupValue;
 			EEPROM_writeByte(ZERO_ADDR,e.zeroEn);
 			i.display_state++;
 			i.setupValue = e.f1224;
 			break;
-		
+
 		case SETUP_F1224:
 			e.f1224 = i.setupValue;
 			EEPROM_writeByte(F1224_ADDR,e.f1224);
@@ -259,70 +253,12 @@ void event_single_key2(void)
 			i.setupValue = e.bright;
 			displaySetBright(i.setupValue);
 			break;
-		
+
 		case SETUP_BRIGHT:
-			i.display_state++;
 			e.bright = i.setupValue;
 			EEPROM_writeByte(BRIGHT_ADDR,e.bright);
-			i.setupValue = e.nBright;
-			displaySetBright(i.setupValue);
-			break;
-		
-		case SETUP_NIGHT_BR:
-			e.nBright = i.setupValue;
-			EEPROM_writeByte(NIGHT_BR_ADDR,e.nBright);
 			i.display_state++;
-			i.setupValue = e.nBrightEn;
-			displaySetBright(100);
-			break;
-		
-		case SETUP_NIGHT_BR_EN:
-			e.nBrightEn = i.setupValue;
-			EEPROM_writeByte(NIGHT_BR_EN_ADDR,e.nBrightEn);
-			i.display_state++;
-			i.setupValue = e.nBrightStartH;
-			break;
-		
-		case SETUP_NIGHT_BR_START_H:
-			e.nBrightStartH = i.setupValue;
-			EEPROM_writeByte(NIGHT_BR_START_H_ADDR,e.nBrightStartH);
-			i.display_state++;
-			i.setupValue = e.nBrightStartM;
-			break;
-		
-		case SETUP_NIGHT_BR_START_M:
-			e.nBrightStartM = i.setupValue;
-			EEPROM_writeByte(NIGHT_BR_START_M_ADDR,e.nBrightStartM);
-			i.display_state++;
-			i.setupValue = e.nBrightEndH;
-			break;
-		
-		case SETUP_NIGHT_BR_END_H:
-			e.nBrightEndH = i.setupValue;
-			EEPROM_writeByte(NIGHT_BR_STOP_H_ADDR,e.nBrightEndH);
-			i.display_state++;
-			i.setupValue = e.nBrightEndM;
-			break;
-		
-		case SETUP_NIGHT_BR_END_M:
-			e.nBrightEndM = i.setupValue;
-			EEPROM_writeByte(NIGHT_BR_STOP_M_ADDR,e.nBrightEndM);
-			i.display_state++;
-			i.setupValue = e.rgbAtNightEn;
-			break;
-		
-		case SETUP_NIGHT_RGB_EN:
-			e.rgbAtNightEn = i.setupValue;
-			EEPROM_writeByte(NIGHT_RGB_EN_ADDR,e.rgbAtNightEn);
-			i.display_state++;
-			i.setupValue = e.antipoisoningAtNihgtOnly;
-			break;
-		
-		case SETUP_ANTIPOISONING_AT_NIGHT_ONLY:
-			e.antipoisoningAtNihgtOnly = i.setupValue;
-			EEPROM_writeByte(ANTIPOISONING_AT_NIGHT_ONLY_ADDR,e.antipoisoningAtNihgtOnly);
-			i.display_state++;
-			i.setupValue = e.colonBlinkingType;
+			i.setupValue = *setup_schedule_ptr(i.display_state);
 			break;
 
 		case SETUP_COLON_BLINKING_TYPE:
@@ -340,7 +276,19 @@ void event_single_key2(void)
 			break;
 
 		default:
-			i.display_state = SETUP_NO;
+			if (setup_is_schedule(i.display_state)){
+				*setup_schedule_ptr(i.display_state) = i.setupValue;
+				EEPROM_writeByte(SCHEDULE_WEEKDAY1_START_ADDR + (i.display_state - SETUP_WEEKDAY1_START),i.setupValue);
+				if (i.display_state == SETUP_WEEKEND2_END){
+					i.display_state = SETUP_COLON_BLINKING_TYPE;
+					i.setupValue = e.colonBlinkingType;
+				} else {
+					i.display_state++;
+					i.setupValue = *setup_schedule_ptr(i.display_state);
+				}
+			} else {
+				i.display_state = SETUP_NO;
+			}
 			break;
 	}
 }

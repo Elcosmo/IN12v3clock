@@ -35,6 +35,7 @@ function Invoke-HostTest {
 Set-Location $repoRoot
 
 Invoke-HostTest "schedule" "gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_schedule.c -o /tmp/test_schedule && /tmp/test_schedule"
+Invoke-HostTest "schedule EEPROM/menu" "gcc -std=c99 -Wall -Wextra -DHOST_TEST -Itests/mock_display -I. tests/test_schedule_config.c eeprom.c keyevents.c -o /tmp/test_schedule_config && /tmp/test_schedule_config"
 Invoke-HostTest "ds3231" "gcc -std=c99 -Wall -Wextra -Werror -Itests/mock -I. tests/test_ds3231.c ds3231.c -o /tmp/test_ds3231 && /tmp/test_ds3231"
 Invoke-HostTest "display gate" "gcc -std=c99 -Wall -Wextra -Itests/mock_display -I. tests/test_display_gate.c display.c -o /tmp/test_display_gate && /tmp/test_display_gate"
 Invoke-HostTest "hc595 safe boot" "gcc -std=c99 -Wall -Wextra -Werror -Itests/mock_display -I. tests/test_hc595_init.c hc595.c -o /tmp/test_hc595_init && /tmp/test_hc595_init"

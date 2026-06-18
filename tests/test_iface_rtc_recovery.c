@@ -5,6 +5,7 @@
 #include "iface.h"
 #include "display.h"
 #include "ds3231.h"
+#define SCHEDULE_DEFAULTS_IMPLEMENTATION
 #include "eeprom.h"
 
 extern Iface i;
@@ -261,7 +262,7 @@ int main(void)
 	e.bright = 100;
 	e.zeroEn = 0;
 	e.rgbGlobalEn = 1;
-	e.nBrightEn = 0;
+	schedule_config_defaults(&e.schedule);
 
 	mock_rtc_valid = 0;
 	set_mock_time(0x02,0x31,0x07,1);
